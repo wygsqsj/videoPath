@@ -15,12 +15,15 @@ import com.wish.videopath.R
  */
 class MyImageView(context: Context?, attrs: AttributeSet?) : View(context, attrs) {
 
-    val mPaint = Paint()
+    private val mPaint = Paint()
 
     override fun onDraw(canvas: Canvas?) {
         super.onDraw(canvas)
         mPaint.style = Paint.Style.FILL
-        val bitmap = BitmapFactory.decodeResource(resources, R.mipmap.mn)
-        canvas?.drawBitmap(bitmap, 100f, 400f, mPaint)
+        mPaint.color = Color.YELLOW
+
+        val bitmap = BitmapFactory.decodeResource(resources, R.mipmap.haha)
+        canvas?.drawBitmap(bitmap, 0f, 0f, mPaint);//不限定图片大小  只指定左上角坐标
+        bitmap.recycle()
     }
 }
