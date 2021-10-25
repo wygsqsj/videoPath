@@ -62,10 +62,12 @@ class MySurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) 
         val mPaint = Paint()
         mPaint.style = Paint.Style.FILL
         mPaint.color = Color.GREEN
+        //构建bitmap
         val bitmap = BitmapFactory.decodeResource(resources, R.mipmap.haha)
+        //bitmap显示区域
         val rect = RectF(0f, 0f, measuredWidth.toFloat(), measuredHeight.toFloat())
         mCanvas.drawRect(rect,mPaint)
-
+        //绘制
         mCanvas.drawBitmap(bitmap, 0f, 0f, mPaint)
         mSurfaceHolder.unlockCanvasAndPost(mCanvas)
     }
