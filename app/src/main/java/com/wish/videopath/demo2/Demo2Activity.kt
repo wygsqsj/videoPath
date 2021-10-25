@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.Toast
 import androidx.annotation.RequiresApi
@@ -154,8 +155,8 @@ class Demo2Activity : AppCompatActivity() {
     //播放音频
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun play() {
-//        playOfSteam()
-        playOfStatic()
+        playOfSteam()
+//        playOfStatic()
     }
 
 
@@ -269,6 +270,21 @@ class Demo2Activity : AppCompatActivity() {
             }
         }
     }
+
+    fun saveWav(view: View) {
+        val pcmFile = File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), PCM_NAME)
+        val wavFile = File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), "haha.wav")
+        val wavUtil = PCMCovWavUtil(
+            pcmFile,
+            wavFile,
+            SAMPLE_RATE_INHZ,
+            CHANNEL_CONFIG,
+            AUDIO_FORMAT,
+            minBufferSize
+        )
+        wavUtil.convertWaveFile()
+    }
+
 
     override fun onDestroy() {
         super.onDestroy()
