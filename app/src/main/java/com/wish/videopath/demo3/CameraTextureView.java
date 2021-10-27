@@ -43,6 +43,11 @@ public class CameraTextureView extends TextureView implements TextureView.Surfac
         try {
             mCamera.setPreviewTexture(surface);
             mCamera.startPreview();
+            //设置NV21数据回调
+            mCamera.setPreviewCallback((bytes, camera) -> {
+                Log.i("音视频","camera数据："+bytes.length);
+            });
+
         } catch (IOException e) {
             e.printStackTrace();
         }
