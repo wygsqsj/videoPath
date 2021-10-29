@@ -42,8 +42,6 @@ public class ExtractorMuxerThread extends Thread {
         MediaMuxer videoMuxer = null;//输出视频
         MediaMuxer audioMuxer = null;//输出音频
 
-        File inFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "dd.mp4");
-
         File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "mixer.mp4");
         File outputAudioFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "mixer.aac");
         String outputFilePath = outputFile.getAbsolutePath();
@@ -54,7 +52,7 @@ public class ExtractorMuxerThread extends Thread {
             outputAudioFile.createNewFile();
             //读取MP4
             videoExtractor = new MediaExtractor();
-            videoExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.test4));
+            videoExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.demo4));
 
             //获取通道
             int videoIndex = -1;
