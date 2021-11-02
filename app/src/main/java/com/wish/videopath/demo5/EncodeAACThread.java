@@ -51,6 +51,9 @@ public class EncodeAACThread extends Thread {
     @Override
     public void run() {
         super.run();
+        if (!pcmFile.exists()) {
+            return;
+        }
         try {
             //pcm文件获取
             fis = new FileInputStream(pcmFile);

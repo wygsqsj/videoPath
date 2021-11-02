@@ -88,7 +88,6 @@ public class EncodeAACThreadV2 extends Thread {
             Log.i(LOG_TAG, "当前输出的format：" + encodeFormat);
             audioTrackIndex = audioMuxer.addTrack(encodeFormat);
             audioMuxer.start();//开始合成audio*/
-
             /*
              * 同步方式，流程是在while中
              * dequeueInputBuffer -> queueInputBuffer填充数据 -> dequeueOutputBuffer -> releaseOutputBuffer显示画面
