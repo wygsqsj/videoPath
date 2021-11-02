@@ -9,7 +9,10 @@ import android.view.View;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import com.wish.videopath.demo2.Demo2Activity;
+import com.wish.videopath.demo3.Demo3Activity;
 import com.wish.videopath.demo4.Demo4Activity;
+import com.wish.videopath.demo5.Demo5Activity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -28,8 +31,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void startUp(View view) {
+    public void startUp1(View view) {
+        Intent intent = new Intent(this, Demo2Activity.class);
+        startActivity(intent);
+    }
+
+    public void startUp2(View view) {
         Intent intent = new Intent(this, Demo4Activity.class);
+        startActivity(intent);
+    }
+
+    public void startUp3(View view) {
+        Intent intent = new Intent(this, Demo5Activity.class);
+        startActivity(intent);
+    }
+
+    public void startUp4(View view) {
+        Intent intent = new Intent(this, Demo5Activity.class);
         startActivity(intent);
     }
 }

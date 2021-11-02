@@ -9,6 +9,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * 版权声明：本文为CSDN博主「lidongxiu0714」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
@@ -54,6 +55,36 @@ public class PCMCovWavUtil {
                 wavFile.createNewFile();
         } catch (IOException e) {
 
+        }
+    }
+
+    public static void main(String[] args){
+         int[][] matrix = {{1,2,3,1},{4,5,6,1},{4,5,6,1}};
+        ArrayList<Integer> list = new ArrayList();
+        int count = matrix.length/2 + matrix.length%2;
+        for(int i = 0;i<count;i++){
+            //横左
+            for(int j = i;j<matrix[i].length-i;j++){
+                list.add(matrix[i][j]);
+            }
+            //竖右
+            for(int z = i+1;z<matrix.length-i;z++){
+                list.add(matrix[z][matrix[z].length-i-1]);
+            }
+
+            //横下
+            for(int x = matrix.length-i;x>i;x--){
+                list.add(matrix[matrix.length-i-1][x]);
+            }
+
+            //竖左
+            for(int y = matrix.length-i-1;y>i;y--){
+                list.add(matrix[y][i]);
+            }
+        }
+        //竖左
+        for(int i : list){
+            System.out.print(i+",");
         }
     }
 

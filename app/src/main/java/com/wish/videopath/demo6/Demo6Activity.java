@@ -44,7 +44,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_demo5);
-        surfaceview = findViewById(R.id.demo5surface);
+//        surfaceview = findViewById(R.id.demo5surface);
         surfaceHolder = surfaceview.getHolder();
         surfaceHolder.addCallback(this);
     }
