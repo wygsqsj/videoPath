@@ -7,10 +7,12 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import com.wish.videopath.R;
 
@@ -22,9 +24,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 import static com.wish.videopath.MainActivity.LOG_TAG;
 
@@ -117,7 +116,7 @@ public class DecodeAACAsyn extends Thread {
         Log.e(LOG_TAG, "Decode,当前线程： " + Thread.currentThread().getName());
         try {
             fos = new FileOutputStream(pcmFile.getAbsoluteFile());
-            audioExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.demo5));
+            audioExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.demo5mp3));
             int count = audioExtractor.getTrackCount();
             for (int i = 0; i < count; i++) {
                 audioFormat = audioExtractor.getTrackFormat(i);

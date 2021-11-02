@@ -1,6 +1,5 @@
 package com.wish.videopath.demo5;
 
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 
@@ -21,11 +20,15 @@ public class Demo5Activity extends AppCompatActivity {
 
     // pcm编码成mp3
     public void encode(View view) {
+        //IO流写入
+//        new EncodeAACThread(this).start();
+        //使用MideaMuxer写入aac
+        new EncodeAACThreadV2(this).start();
     }
 
     //aac解码成pcm
     public void decode(View view) {
-//        new DecodeAACThread(this).start();
-        new DecodeAACAsyn(this).start();
+        new DecodeAACThread(this).start();
+//        new DecodeAACAsyn(this).start();
     }
 }
