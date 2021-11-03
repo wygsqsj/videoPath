@@ -174,6 +174,7 @@ public class EncodeAACThread extends Thread {
             }
             if (fos != null) {
                 try {
+                    fos.flush();
                     fos.close();
                 } catch (IOException e) {
                     e.printStackTrace();

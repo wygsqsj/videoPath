@@ -8,8 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.wish.videopath.R;
 
 /**
- * MediaCodec AAC编解码,将aac解析成pcm再编码成mp3
- * 通过M
+ * MediaCodec AAC编解码,将aac解析成pcm再编码回aac
  */
 public class Demo5Activity extends AppCompatActivity {
 
@@ -18,7 +17,7 @@ public class Demo5Activity extends AppCompatActivity {
         setContentView(R.layout.activity_demo5);
     }
 
-    // pcm编码成mp3
+    // pcm编码成编码
     public void encode(View view) {
         //IO流写入
 //        new EncodeAACThread(this).start();

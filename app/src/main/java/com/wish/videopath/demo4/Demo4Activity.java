@@ -10,6 +10,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.wish.videopath.R;
 
+/**
+ * MediaExtractor 和 MediaMuxer API，知道如何解析和封装 mp4 文件
+ */
 public class Demo4Activity extends AppCompatActivity {
 
     private int mVideoTrack, mAudioTrack;

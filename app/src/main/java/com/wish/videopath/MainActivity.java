@@ -13,6 +13,7 @@ import com.wish.videopath.demo2.Demo2Activity;
 import com.wish.videopath.demo3.Demo3Activity;
 import com.wish.videopath.demo4.Demo4Activity;
 import com.wish.videopath.demo5.Demo5Activity;
+import com.wish.videopath.demo6.Demo6Activity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -31,22 +32,38 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void startUp1(View view) {
+    //AudioRecord 和 AudioTrack API 完成音频 PCM 数据的采集和播放
+    public void startUp2(View view) {
         Intent intent = new Intent(this, Demo2Activity.class);
         startActivity(intent);
     }
 
-    public void startUp2(View view) {
+    // SurfaceView、TextureView 来预览 Camera
+    public void startUp3(View view) {
+        Intent intent = new Intent(this, Demo3Activity.class);
+        startActivity(intent);
+    }
+
+    //MediaExtractor 和 MediaMuxer API，知道如何解析和封装 mp4 文件
+    public void startUp4(View view) {
         Intent intent = new Intent(this, Demo4Activity.class);
         startActivity(intent);
     }
 
-    public void startUp3(View view) {
+    //MediaCodec AAC编解码,将aac解析成pcm再编码回aac
+    public void startUp5(View view) {
         Intent intent = new Intent(this, Demo5Activity.class);
         startActivity(intent);
     }
 
-    public void startUp4(View view) {
+    //MediaCodec h264编解码,将摄像头采集的yuv数据编码成h264显示在surface中
+    public void startUp6(View view) {
+        Intent intent = new Intent(this, Demo6Activity.class);
+        startActivity(intent);
+    }
+
+    //生成mp4文件
+    public void startUp7(View view) {
         Intent intent = new Intent(this, Demo5Activity.class);
         startActivity(intent);
     }

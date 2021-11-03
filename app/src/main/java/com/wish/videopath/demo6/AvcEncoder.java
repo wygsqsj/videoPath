@@ -1,3 +1,4 @@
+/*
 package com.wish.videopath.demo6;
 
 import android.media.MediaCodec;
@@ -14,11 +15,13 @@ import java.nio.ByteBuffer;
 import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
 import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
 
+*/
 /**
  * 类名称：AvcEncoder
  * 类描述：MediaCodec编码，将摄像头捕获的yuv数据编码成.h264
  * 创建时间：2021/10/29
- */
+ *//*
+
 public class AvcEncoder {
     private int TIMEOUT_USEC = 12000;
     private int mYuvQueueSize = 10;
@@ -212,3 +215,4 @@ public class AvcEncoder {
     }
 
 }
+*/

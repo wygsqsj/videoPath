@@ -6,13 +6,16 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.wish.videopath.R;
 
 import java.io.IOException;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.wish.videopath.MainActivity.LOG_TAG;
 
@@ -23,7 +26,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
 
     private SurfaceView surfaceview;
 
-    private SurfaceHolder surfaceHolder;
+    private Button mStartEncode, mStopEncode;
 
     private Camera mCamera;
 
@@ -37,36 +40,33 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
 
     int biterate = 8500 * 1000;
 
-    private static int yuvqueuesize = 10;
+    //待解码视频缓冲队列,volatitle 保证多线程的可见性
+    private volatile LinkedBlockingQueue YUVQueue = new LinkedBlockingQueue(16);
 
-    //待解码视频缓冲队列，静态成员！
-    public static ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<byte[]>(yuvqueuesize);
-    private AvcEncoder avcCodec;
-
-//    private AvcEncoder avcCodec;
+    private H264EncodeThread encodeThread;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_demo6);
         surfaceview = findViewById(R.id.demo6Surface);
-        surfaceHolder = surfaceview.getHolder();
-        surfaceHolder.addCallback(this);
+        mStartEncode = findViewById(R.id.btnStart264);
+        mStopEncode = findViewById(R.id.btnStop264);
+
+        surfaceview.getHolder().addCallback(this);
     }
 
     //摄像头获取到的yuv数据回调
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
         //将当前帧图像保存在队列中
-        putYUVData(data, data.length);
+        if (mStartEncode.getText().toString().contains("正在录制")) {
+            putYUVData(data, data.length);
+        }
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         initBackCamera();
-        //创建AvEncoder对象
-        avcCodec = new AvcEncoder(width, height, framerate, biterate);
-        //启动编码线程
-        avcCodec.StartEncoderThread();
     }
 
     @Override
@@ -81,7 +81,10 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
             mCamera.stopPreview();
             mCamera.release();
             mCamera = null;
-//            avcCodec.StopThread();
+        }
+
+        if (encodeThread != null) {
+            encodeThread.stopEncode();
         }
     }
 
@@ -92,7 +95,6 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         }
         YUVQueue.add(buffer);
     }
-
 
     //配置摄像头
     private void initBackCamera() {
@@ -118,12 +120,51 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
             mCamera.setParameters(parameters);
             //将完全初始化的SurfaceHolder传入到setPreviewDisplay(SurfaceHolder)中
             //没有surface的话，相机不会开启preview预览
-            mCamera.setPreviewDisplay(surfaceHolder);
+            mCamera.setPreviewDisplay(surfaceview.getHolder());
             //调用startPreview()用以更新preview的surface，必须要在拍照之前start Preview
             mCamera.startPreview();
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (encodeThread != null) {
+            encodeThread.stopEncode();
+        }
+
+        if (null != mCamera) {
+            mCamera.setPreviewCallback(null);
+            mCamera.stopPreview();
+            mCamera.release();
+            mCamera = null;
+            encodeThread.stopEncode();
+        }
+    }
+
+    public LinkedBlockingQueue<byte[]> getYUVQueue() {
+        return YUVQueue;
+    }
+
+    //停止录制h264
+    public void stopH264(View view) {
+        if (encodeThread != null) {
+            encodeThread.stopEncode();
+            mStartEncode.setText("开始录制");
+            encodeThread = null;
+        } else {
+            Toast.makeText(this, "请先开始录制！", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    //开始录制h264
+    public void startH264(View view) {
+        //创建AvEncoder对象
+        encodeThread = new H264EncodeThread(this, width, height, framerate, biterate);
+        //启动编码线程
+        encodeThread.start();
+        mStartEncode.setText("正在录制");
     }
 }
