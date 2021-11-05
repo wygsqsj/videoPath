@@ -3,13 +3,12 @@ package com.wish.videopath.demo6;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
@@ -18,15 +17,15 @@ import static com.wish.videopath.MainActivity.LOG_TAG;
 
 /**
  * 类名称：H264EncodeThread
- * 类描述：将摄像头采集到视频数据编码成h264X，使用IO处添加时间戳没添加上
+ * 类描述：将摄像头采集到视频数据编码成h264,通过MediaMuxer输出成264文件，此处可以添加时间戳
  * <p>
  * 摄像头在Activity中已经开启，返回的数据流存放在一个que
  */
-public class H264EncodeThread extends Thread {
+public class H264EncodeMuxerThread extends Thread {
 
     private Demo6Activity demo6Activity;
     private boolean isEncode = true;
-    private boolean inOutFinish, isFinishInput;
+    private boolean inOutFinish;
     private int width = 1280;
     private int height = 720;
     private int framerate = 30;//帧率
@@ -37,10 +36,10 @@ public class H264EncodeThread extends Thread {
 
     private MediaCodec encodeCodec;
     private File out264File;
-    private FileOutputStream fos;
+    private MediaMuxer audioMuxer = null;
 
 
-    public H264EncodeThread(Demo6Activity demo6Activity, int width, int height, int framerate, int biterate) {
+    public H264EncodeMuxerThread(Demo6Activity demo6Activity, int width, int height, int framerate, int biterate) {
         this.demo6Activity = demo6Activity;
         this.width = width;
         this.height = height;
@@ -52,9 +51,9 @@ public class H264EncodeThread extends Thread {
     public void run() {
         super.run();
         try {
-            out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "camera.h264");
+            out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "cameraMuxer.h264");
             out264File.createNewFile();
-            fos = new FileOutputStream(out264File);
+            audioMuxer = new MediaMuxer(out264File.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             //构建对应的MeidaFormat
             MediaFormat mediaFormat = MediaFormat.createVideoFormat(encodeMine, width, height);
             //设置yuv格式
@@ -71,8 +70,12 @@ public class H264EncodeThread extends Thread {
             encodeCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
 
             MediaCodec.BufferInfo encodeBufferInfo = new MediaCodec.BufferInfo();//用于描述解码得到的byte[]数据的相关信息
+            MediaCodec.BufferInfo videoBufferInfo = new MediaCodec.BufferInfo();
             //启动编码器
             encodeCodec.start();
+
+            //启动Muxer输出
+            int videoTrackIndex = 0;
 
             long generateIndex = 0;//计算时间戳用的index
             long pts = 0;//时间戳
@@ -84,6 +87,7 @@ public class H264EncodeThread extends Thread {
                         //从猪肉工厂获取装猪的小推车，填充数据后发送到猪肉工厂进行处理
                         ByteBuffer[] inputBuffers = encodeCodec.getInputBuffers();//所有的小推车
                         int inputIndex = encodeCodec.dequeueInputBuffer(0);//返回当前可用的小推车标号
+
                         if (inputIndex != -1) {
                             Log.i(LOG_TAG, "找到了input 小推车" + inputIndex);
                             //将MediaCodec数据取出来放到这个缓冲区里
@@ -94,7 +98,6 @@ public class H264EncodeThread extends Thread {
                             byte[] yuv420sp = new byte[width * height * 3 / 2];
                             //把待编码的视频帧转换为YUV420格式
                             NV21ToNV12(yuvData, yuv420sp, width, height);
-
                             //audioExtractor没猪了，也要告知一下
                             if (yuv420sp.length < 0) {
                                 Log.i(LOG_TAG, "当前yuv数据异常");
@@ -104,9 +107,9 @@ public class H264EncodeThread extends Thread {
                                 inputBuffer.limit(yuv420sp.length);
                                 inputBuffer.put(yuvData, 0, yuvData.length);
                                 //计算时间戳,纯H264文件没有时间戳概念，所以此处传0也可以
-                                pts = computePresentationTime(generateIndex);
+//                            pts = computePresentationTime(generateIndex);
                                 Log.i(LOG_TAG, "当前时间戳：" + pts);
-                                encodeCodec.queueInputBuffer(inputIndex, 0, yuv420sp.length, pts, 0);
+                                encodeCodec.queueInputBuffer(inputIndex, 0, yuv420sp.length, 0, 0);
                                 generateIndex += 1;
                             }
                         } else {
@@ -114,18 +117,18 @@ public class H264EncodeThread extends Thread {
                         }
                     }
                 } else {
-                    if (!isFinishInput) {
-                        Log.i(LOG_TAG, "停止录入");
-                        int inputIndex = encodeCodec.dequeueInputBuffer(0);//返回当前可用的小推车标号
-                        encodeCodec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                        isFinishInput = true;
-                    }
+                    Log.i(LOG_TAG, "停止录入");
+                    int inputIndex = encodeCodec.dequeueInputBuffer(0);//返回当前可用的小推车标号
+                    encodeCodec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                 }
+
                 //工厂已经把猪运进去了，但是是否加工成火腿肠还是未知的，我们要通过装火腿肠的筐来判断是否已经加工完了
                 int outputIndex = encodeCodec.dequeueOutputBuffer(encodeBufferInfo, 10000);//返回当前筐的标记
                 switch (outputIndex) {
                     case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
                         Log.i(LOG_TAG, "输出的format已更改" + encodeCodec.getOutputFormat());
+                        videoTrackIndex = audioMuxer.addTrack(encodeCodec.getOutputFormat());
+                        audioMuxer.start();//开始合成audio
                         break;
                     case MediaCodec.INFO_TRY_AGAIN_LATER:
                         Log.i(LOG_TAG, "超时，没获取到");
@@ -157,10 +160,24 @@ public class H264EncodeThread extends Thread {
                             System.arraycopy(configByte, 0, keyframe, 0, configByte.length);
                             //把编码后的视频帧从编码器输出缓冲区中拷贝出来
                             System.arraycopy(outData, 0, keyframe, configByte.length, outData.length);
-                            fos.write(keyframe, 0, keyframe.length);
+
+                            ByteBuffer newBuffer = ByteBuffer.allocate(keyframe.length);
+                            newBuffer.put(keyframe);
+
+                            videoBufferInfo.size = keyframe.length;
+                            videoBufferInfo.presentationTimeUs = (System.nanoTime() - startTime) / 1000;
+                            videoBufferInfo.offset = 0;
+                            videoBufferInfo.flags = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
+                            //通过MediaMuxer写入
+                            audioMuxer.writeSampleData(videoTrackIndex, newBuffer, videoBufferInfo);
                         } else {
                             //写到文件中
-                            fos.write(outData, 0, outData.length);
+                            videoBufferInfo.size = encodeBufferInfo.size;
+                            videoBufferInfo.presentationTimeUs = (System.nanoTime() - startTime) / 1000;
+                            videoBufferInfo.offset = 0;
+                            videoBufferInfo.flags = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
+                            //通过MediaMuxer写入
+                            audioMuxer.writeSampleData(videoTrackIndex, outputBuffer, videoBufferInfo);
                         }
                         //把筐放回工厂里面
                         encodeCodec.releaseOutputBuffer(outputIndex, false);
@@ -178,14 +195,6 @@ public class H264EncodeThread extends Thread {
         } finally {
             if (encodeCodec != null) {
                 encodeCodec.release();
-            }
-            if (fos != null) {
-                try {
-                    fos.flush();
-                    fos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
         }
     }

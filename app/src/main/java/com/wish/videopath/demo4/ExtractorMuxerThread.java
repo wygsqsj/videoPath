@@ -87,6 +87,7 @@ public class ExtractorMuxerThread extends Thread {
             videoBufferInfo.presentationTimeUs = 0;
             while (true) {
                 //把指定通道中的数据按偏移量读取到ByteBuffer中
+                byteBuffer.clear();
                 int data = videoExtractor.readSampleData(byteBuffer, 0);
                 if (data < 0) {
                     break;
@@ -108,6 +109,7 @@ public class ExtractorMuxerThread extends Thread {
             videoExtractor.selectTrack(audioIndex);
             videoBufferInfo.presentationTimeUs = 0;
             while (true) {
+                byteBuffer.clear();
                 //把指定通道中的数据按偏移量读取到ByteBuffer中
                 int data = videoExtractor.readSampleData(byteBuffer, 0);
                 if (data < 0) {

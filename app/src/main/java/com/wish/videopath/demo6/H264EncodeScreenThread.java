@@ -1,11 +1,16 @@
 package com.wish.videopath.demo6;
 
+import android.hardware.display.DisplayManager;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.media.projection.MediaProjection;
 import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
+import android.view.Surface;
+
+import androidx.annotation.RequiresApi;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -17,12 +22,13 @@ import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
 import static com.wish.videopath.MainActivity.LOG_TAG;
 
 /**
- * 类名称：H264EncodeThread
- * 类描述：将摄像头采集到视频数据编码成h264X，使用IO处添加时间戳没添加上
+ * 类名称：H264EncodeScreenThread
+ * 类描述：录屏编码成h264文件
  * <p>
- * 摄像头在Activity中已经开启，返回的数据流存放在一个que
+ * 创建时间：2021/11/5
  */
-public class H264EncodeThread extends Thread {
+public class H264EncodeScreenThread extends Thread {
+
 
     private Demo6Activity demo6Activity;
     private boolean isEncode = true;
@@ -33,32 +39,37 @@ public class H264EncodeThread extends Thread {
     private int biterate = 8500 * 1000;
     private String encodeMine = "video/avc";
     private byte[] configByte;
+    private MediaProjection mMediaProjection;
 
 
     private MediaCodec encodeCodec;
     private File out264File;
     private FileOutputStream fos;
+    private Surface inputSurface;
 
 
-    public H264EncodeThread(Demo6Activity demo6Activity, int width, int height, int framerate, int biterate) {
+    public H264EncodeScreenThread(Demo6Activity demo6Activity, int width, int height, int framerate,
+                                  int biterate, MediaProjection mMediaProjection) {
+        this.mMediaProjection = mMediaProjection;
         this.demo6Activity = demo6Activity;
-        this.width = width;
-        this.height = height;
         this.framerate = framerate;
         this.biterate = biterate;
+        this.width = demo6Activity.getResources().getDisplayMetrics().widthPixels;
+        this.height = demo6Activity.getResources().getDisplayMetrics().heightPixels;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     public void run() {
         super.run();
         try {
-            out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "camera.h264");
+            out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "cameraOfScreen.h264");
             out264File.createNewFile();
             fos = new FileOutputStream(out264File);
             //构建对应的MeidaFormat
             MediaFormat mediaFormat = MediaFormat.createVideoFormat(encodeMine, width, height);
-            //设置yuv格式
-            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
+            //注意此处要设置成surface类型
+            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
             //比特率
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 5);
             //描述视频格式的帧速率
@@ -69,11 +80,66 @@ public class H264EncodeThread extends Thread {
             //构建编码h264MediaCodec
             encodeCodec = MediaCodec.createEncoderByType(encodeMine);
             encodeCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-
+            inputSurface = encodeCodec.createInputSurface();
+            initVirtualDisplay();
             MediaCodec.BufferInfo encodeBufferInfo = new MediaCodec.BufferInfo();//用于描述解码得到的byte[]数据的相关信息
             //启动编码器
             encodeCodec.start();
+            while (isEncode) {
+                int outputIndex = encodeCodec.dequeueOutputBuffer(encodeBufferInfo, 10000);//返回当前筐的标记
+                switch (outputIndex) {
+                    case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
+                        Log.i(LOG_TAG, "输出的format已更改" + encodeCodec.getOutputFormat());
+                        break;
+                    case MediaCodec.INFO_TRY_AGAIN_LATER:
+                        Log.i(LOG_TAG, "超时，没获取到");
+                        break;
+                    case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
+                        Log.i(LOG_TAG, "输出缓冲区已更改");
+                        break;
+                    default:
+                        Log.i(LOG_TAG, "获取到surface中的数据，当前解析后的数据长度为：" + encodeBufferInfo.size);
+                        //获取所有的筐
+                        ByteBuffer[] outputBuffers = encodeCodec.getOutputBuffers();
+                        //拿到当前装满火腿肠的筐
+                        ByteBuffer outputBuffer;
+                        if (Build.VERSION.SDK_INT >= 21) {
+                            outputBuffer = encodeCodec.getOutputBuffer(outputIndex);
+                        } else {
+                            outputBuffer = outputBuffers[outputIndex];
+                        }
+                        //将数据读取到outData中
+                        byte[] outData = new byte[encodeBufferInfo.size];
+                        outputBuffer.get(outData);
+                        //当前是初始化编解码器数据,不是媒体数据，sps、pps等初始化数据
+                        if (encodeBufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG) {
+                            Log.i(LOG_TAG, "获取到初始化编解码器数据,长度为：" + encodeBufferInfo.size);
+                            configByte = new byte[encodeBufferInfo.size];
+                            configByte = outData;
+                        } else if (encodeBufferInfo.flags == BUFFER_FLAG_KEY_FRAME) {//当前的数据中包含关键帧数据
+                            Log.i(LOG_TAG, "获取到I帧数据,长度为：" + encodeBufferInfo.size);
+                            //将初始化数据和当前的关键帧数据合并后写入到h264文件中
+                            byte[] keyframe = new byte[encodeBufferInfo.size + configByte.length];
+                            System.arraycopy(configByte, 0, keyframe, 0, configByte.length);
+                            //把编码后的视频帧从编码器输出缓冲区中拷贝出来
+                            System.arraycopy(outData, 0, keyframe, configByte.length, outData.length);
+                            fos.write(keyframe, 0, keyframe.length);
+                        } else {
+                            Log.i(LOG_TAG, "获取到非关键帧数据,长度为：" + encodeBufferInfo.size);
+                            //写到文件中
+                            fos.write(outData, 0, outData.length);
+                        }
+                        //把筐放回工厂里面
+                        encodeCodec.releaseOutputBuffer(outputIndex, false);
+                        break;
+                }
+                if ((encodeBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                    Log.i(LOG_TAG, "表示当前编解码已经完事了");
+                    inOutFinish = true;
+                }
+            }
 
+/*
             long generateIndex = 0;//计算时间戳用的index
             long pts = 0;//时间戳
             long startTime = System.nanoTime();
@@ -170,7 +236,7 @@ public class H264EncodeThread extends Thread {
                     Log.i(LOG_TAG, "表示当前编解码已经完事了");
                     inOutFinish = true;
                 }
-            }
+            }*/
 
 
         } catch (Exception e) {
@@ -187,7 +253,24 @@ public class H264EncodeThread extends Thread {
                     e.printStackTrace();
                 }
             }
+            if (inputSurface != null) {
+                inputSurface.release();
+            }
         }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private void initVirtualDisplay() {
+        mMediaProjection.createVirtualDisplay(
+                LOG_TAG,  //virtualDisplay 的名字，随意写
+                width,
+                height,
+                demo6Activity.getResources().getDisplayMetrics().densityDpi, // virtualDisplay 的 dpi 值，这里都跟应用保持一致即可
+                // 显示的标志位，不同的标志位，截取不同的内容，具体看源码解释
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+                inputSurface, //获取内容的 surface
+                null, //回调
+                null);  //回调执行的handler
     }
 
     //计算时间戳
@@ -229,4 +312,5 @@ public class H264EncodeThread extends Thread {
     public void stopEncode() {
         isEncode = false;
     }
+
 }

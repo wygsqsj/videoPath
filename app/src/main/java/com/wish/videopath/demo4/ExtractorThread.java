@@ -96,6 +96,7 @@ public class ExtractorThread extends Thread {
             videoExtractor.unselectTrack(videoIndex);
             videoExtractor.selectTrack(videoIndex);
             while (true) {
+                byteBuffer.clear();
                 //把指定通道中的数据按偏移量读取到ByteBuffer中
                 int data = videoExtractor.readSampleData(byteBuffer, 0);
                 if (data < 0) {
@@ -113,13 +114,14 @@ public class ExtractorThread extends Thread {
             audioExtractor.selectTrack(audioIndex);
             //读取音频，写入新的音频频文件
             while (true) {
+                byteBuffer.clear();
                 //把指定通道中的数据按偏移量读取到ByteBuffer中
                 int data = audioExtractor.readSampleData(byteBuffer, 0);
                 if (data < 0) {
                     break;
                 }
                 audioBufferInfo.size = data;
-                audioBufferInfo.presentationTimeUs = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
+                audioBufferInfo.presentationTimeUs = audioExtractor.getSampleTime();
                 audioBufferInfo.offset = 0;
                 audioBufferInfo.flags = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
                 //把ByteBuffer中的数据写入到在音频构造器设置的文件中

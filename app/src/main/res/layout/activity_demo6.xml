@@ -17,9 +17,22 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:text="开始录制h264"
         android:onClick="startH264"
+        android:text="开始录制"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/demo6Surface"
+        tools:layout_editor_absoluteX="25dp"
+        tools:layout_editor_absoluteY="566dp" />
+
+    <Button
+        android:id="@+id/btnCameraMuxer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="20dp"
+        android:onClick="startH264OfMuxer"
+        android:text="开始录制_Muxer"
+        app:layout_constraintStart_toEndOf="@+id/btnStart264"
         app:layout_constraintTop_toBottomOf="@+id/demo6Surface"
         tools:layout_editor_absoluteX="25dp"
         tools:layout_editor_absoluteY="566dp" />
@@ -28,9 +41,10 @@
         android:id="@+id/btnStop264"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="stopH264"
-        android:text="停止录制h264"
+        android:onClick="screenRecording"
+        android:text="开始录屏"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btnCameraMuxer"
         app:layout_constraintTop_toTopOf="@+id/btnStart264" />
 
 
