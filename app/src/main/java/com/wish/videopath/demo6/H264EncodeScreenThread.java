@@ -133,10 +133,6 @@ public class H264EncodeScreenThread extends Thread {
                         encodeCodec.releaseOutputBuffer(outputIndex, false);
                         break;
                 }
-                if ((encodeBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    Log.i(LOG_TAG, "表示当前编解码已经完事了");
-                    inOutFinish = true;
-                }
             }
 
 /*
@@ -266,7 +262,7 @@ public class H264EncodeScreenThread extends Thread {
                 width,
                 height,
                 demo6Activity.getResources().getDisplayMetrics().densityDpi, // virtualDisplay 的 dpi 值，这里都跟应用保持一致即可
-                // 显示的标志位，不同的标志位，截取不同的内容，具体看源码解释
+                // 显示的标志位，不同的标志位
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
                 inputSurface, //获取内容的 surface
                 null, //回调

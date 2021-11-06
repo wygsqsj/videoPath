@@ -36,7 +36,7 @@ public class H264EncodeMuxerThread extends Thread {
 
     private MediaCodec encodeCodec;
     private File out264File;
-    private MediaMuxer audioMuxer = null;
+    private MediaMuxer vedioMuxer = null;
 
 
     public H264EncodeMuxerThread(Demo6Activity demo6Activity, int width, int height, int framerate, int biterate) {
@@ -53,7 +53,7 @@ public class H264EncodeMuxerThread extends Thread {
         try {
             out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "cameraMuxer.h264");
             out264File.createNewFile();
-            audioMuxer = new MediaMuxer(out264File.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            vedioMuxer = new MediaMuxer(out264File.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             //构建对应的MeidaFormat
             MediaFormat mediaFormat = MediaFormat.createVideoFormat(encodeMine, width, height);
             //设置yuv格式
@@ -127,8 +127,8 @@ public class H264EncodeMuxerThread extends Thread {
                 switch (outputIndex) {
                     case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
                         Log.i(LOG_TAG, "输出的format已更改" + encodeCodec.getOutputFormat());
-                        videoTrackIndex = audioMuxer.addTrack(encodeCodec.getOutputFormat());
-                        audioMuxer.start();//开始合成audio
+                        videoTrackIndex = vedioMuxer.addTrack(encodeCodec.getOutputFormat());
+                        vedioMuxer.start();//开始合成audio
                         break;
                     case MediaCodec.INFO_TRY_AGAIN_LATER:
                         Log.i(LOG_TAG, "超时，没获取到");
@@ -169,7 +169,7 @@ public class H264EncodeMuxerThread extends Thread {
                             videoBufferInfo.offset = 0;
                             videoBufferInfo.flags = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
                             //通过MediaMuxer写入
-                            audioMuxer.writeSampleData(videoTrackIndex, newBuffer, videoBufferInfo);
+                            vedioMuxer.writeSampleData(videoTrackIndex, newBuffer, videoBufferInfo);
                         } else {
                             //写到文件中
                             videoBufferInfo.size = encodeBufferInfo.size;
@@ -177,7 +177,7 @@ public class H264EncodeMuxerThread extends Thread {
                             videoBufferInfo.offset = 0;
                             videoBufferInfo.flags = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
                             //通过MediaMuxer写入
-                            audioMuxer.writeSampleData(videoTrackIndex, outputBuffer, videoBufferInfo);
+                            vedioMuxer.writeSampleData(videoTrackIndex, outputBuffer, videoBufferInfo);
                         }
                         //把筐放回工厂里面
                         encodeCodec.releaseOutputBuffer(outputIndex, false);

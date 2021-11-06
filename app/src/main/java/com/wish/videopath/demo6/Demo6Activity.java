@@ -51,8 +51,6 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     private H264EncodeThread encodeThread;
     private H264EncodeMuxerThread encodeMuxerThread;
     private H264EncodeScreenThread screenThread;
-    //录屏queue
-    private volatile LinkedBlockingQueue screenQueue = new LinkedBlockingQueue(16);
     private MediaProjection mMediaProjection;    //录屏api
     private MediaProjectionManager mediaManager;
     private ActivityResultLauncher<Intent> resultLauncher;
@@ -153,8 +151,6 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
             //将完全初始化的SurfaceHolder传入到setPreviewDisplay(SurfaceHolder)中
             //没有surface的话，相机不会开启preview预览
             mCamera.setPreviewDisplay(surfaceview.getHolder());
-            //调用startPreview()用以更新preview的surface，必须要在拍照之前start Preview
-            mCamera.startPreview();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -185,14 +181,11 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         return YUVQueue;
     }
 
-    public LinkedBlockingQueue<byte[]> getScreenQueue() {
-        return screenQueue;
-    }
-
 
     //摄像头录制h264，IO流直接写入
     public void startH264(View view) {
         if (mCameraEncode.getText().toString().contains("开始录制")) {
+            startPreview();
             //创建AvEncoder对象
             encodeThread = new H264EncodeThread(this, width, height, framerate, biterate);
             //启动编码线程
@@ -201,6 +194,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         } else {
             encodeThread.stopEncode();
             mCameraEncode.setText("开始录制");
+            mCamera.stopPreview();
             encodeThread = null;
         }
     }
@@ -208,6 +202,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     //摄像头录制h264，使用Muxer方式，有时间戳
     public void startH264OfMuxer(View view) {
         if (mCameraMuxerEncode.getText().toString().contains("开始录制_Muxer")) {
+            startPreview();
             //创建AvEncoder对象
             encodeMuxerThread = new H264EncodeMuxerThread(this, width, height, framerate, biterate);
             //启动编码线程
@@ -216,19 +211,27 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         } else {
             encodeMuxerThread.stopEncode();
             mCameraMuxerEncode.setText("开始录制_Muxer");
+            mCamera.stopPreview();
             encodeMuxerThread = null;
         }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void screenRecording(View view) {
+        startPreview();
         if (mScreenEncode.getText().toString().contains("开始录屏")) {
             resultLauncher.launch(mediaManager.createScreenCaptureIntent());
         } else {
             screenThread.stopEncode();
             mScreenEncode.setText("开始录屏");
+            mCamera.stopPreview();
             screenThread = null;
         }
+    }
+
+    //调用startPreview()用以更新preview的surface
+    private void startPreview(){
+        mCamera.startPreview();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)

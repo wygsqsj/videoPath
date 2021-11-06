@@ -103,7 +103,7 @@ public class H264EncodeThread extends Thread {
                                 Log.i(LOG_TAG, "yuv数据转换成功，当前数据的数据长度为：" + yuvData.length);
                                 inputBuffer.limit(yuv420sp.length);
                                 inputBuffer.put(yuvData, 0, yuvData.length);
-                                //计算时间戳,纯H264文件没有时间戳概念，所以此处传0也可以
+                                //计算时间戳,配置了但是没有用，所以此处传0也可以
                                 pts = computePresentationTime(generateIndex);
                                 Log.i(LOG_TAG, "当前时间戳：" + pts);
                                 encodeCodec.queueInputBuffer(inputIndex, 0, yuv420sp.length, pts, 0);
@@ -149,9 +149,11 @@ public class H264EncodeThread extends Thread {
                         outputBuffer.get(outData);
                         //当前是初始化编解码器数据,不是媒体数据，sps、pps等初始化数据
                         if (encodeBufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG) {
+                            Log.i(LOG_TAG, "配置信息编码完成");
                             configByte = new byte[encodeBufferInfo.size];
                             configByte = outData;
                         } else if (encodeBufferInfo.flags == BUFFER_FLAG_KEY_FRAME) {//当前的数据中包含关键帧数据
+                            Log.i(LOG_TAG, "I帧编码完成");
                             //将初始化数据和当前的关键帧数据合并后写入到h264文件中
                             byte[] keyframe = new byte[encodeBufferInfo.size + configByte.length];
                             System.arraycopy(configByte, 0, keyframe, 0, configByte.length);
@@ -160,6 +162,7 @@ public class H264EncodeThread extends Thread {
                             fos.write(keyframe, 0, keyframe.length);
                         } else {
                             //写到文件中
+                            Log.i(LOG_TAG, "非I帧数据编码完成");
                             fos.write(outData, 0, outData.length);
                         }
                         //把筐放回工厂里面
