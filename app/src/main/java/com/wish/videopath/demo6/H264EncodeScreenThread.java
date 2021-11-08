@@ -262,7 +262,7 @@ public class H264EncodeScreenThread extends Thread {
                 width,
                 height,
                 demo6Activity.getResources().getDisplayMetrics().densityDpi, // virtualDisplay 的 dpi 值，这里都跟应用保持一致即可
-                // 显示的标志位，不同的标志位
+                // 表示是一个虚拟的surface
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
                 inputSurface, //获取内容的 surface
                 null, //回调
