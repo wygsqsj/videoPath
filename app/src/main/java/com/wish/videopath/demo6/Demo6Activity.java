@@ -8,6 +8,7 @@ import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -27,6 +28,8 @@ import java.util.concurrent.LinkedBlockingQueue;
  * MediaCodec编解码，将摄像头捕捉的视频内容保存成.h264并显示倒surfaceView中
  */
 public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Callback, Camera.PreviewCallback {
+
+    public static String FILENAME264 = "demo6.264";
 
     private SurfaceView surfaceview;
 
@@ -54,6 +57,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     private MediaProjection mMediaProjection;    //录屏api
     private MediaProjectionManager mediaManager;
     private ActivityResultLauncher<Intent> resultLauncher;
+    private Surface surface;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -93,6 +97,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         initBackCamera();
+        this.surface =  holder.getSurface();
     }
 
     @Override
@@ -115,6 +120,10 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
 
         if (encodeMuxerThread != null) {
             encodeMuxerThread.stopEncode();
+        }
+
+        if (surface != null) {
+            surface = null;
         }
     }
 
@@ -230,7 +239,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     }
 
     //调用startPreview()用以更新preview的surface
-    private void startPreview(){
+    private void startPreview() {
         mCamera.startPreview();
     }
 
@@ -241,5 +250,12 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         //启动编码线程
         screenThread.start();
         mScreenEncode.setText("正在录屏");
+    }
+
+    //播放
+    public void startPlay(View view) {
+        if (surface != null) {
+            new H264DecodeThread(this, width, height, framerate, biterate, surface);
+        }
     }
 }

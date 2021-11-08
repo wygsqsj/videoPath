@@ -47,5 +47,15 @@
         app:layout_constraintStart_toEndOf="@+id/btnCameraMuxer"
         app:layout_constraintTop_toTopOf="@+id/btnStart264" />
 
+    <Button
+        android:id="@+id/btnStartPlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="startPlay"
+        android:text="开始播放"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnStop264" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

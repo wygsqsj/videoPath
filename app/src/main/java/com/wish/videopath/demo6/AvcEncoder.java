@@ -1,218 +1,315 @@
-/*
-package com.wish.videopath.demo6;
+package com.palace.demo;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
+import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
+import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.Toast;
 
-import java.io.BufferedOutputStream;
+import com.wish.videopath.R;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.concurrent.ArrayBlockingQueue;
 
-import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
-import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
+public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
+    private static final String TAG = "DEMO";
 
-*/
-/**
- * 类名称：AvcEncoder
- * 类描述：MediaCodec编码，将摄像头捕获的yuv数据编码成.h264
- * 创建时间：2021/10/29
- *//*
-
-public class AvcEncoder {
-    private int TIMEOUT_USEC = 12000;
-    private int mYuvQueueSize = 10;
-
-
-    private MediaCodec mediaCodec;
-    int m_width;
-    int m_height;
-    int m_framerate;
-
-    public byte[] mConfigByte;
-
-    private File mOutFile;
-    //true--Camera的预览数据编码
-// false--Camera2的预览数据编码
-    private boolean mIsCamera;
-    private byte[] configbyte;
-
-    public AvcEncoder(int width, int height, int framerate, int biterate) {
-        m_width = width;
-        m_height = height;
-        m_framerate = framerate;
-        MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", width, height);
-        mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
-        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 5);
-        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
-        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
-        try {
-            mediaCodec = MediaCodec.createEncoderByType("video/avc");
-        } catch (IOException e) {
-            e.printStackTrace();
+    private SurfaceView mSurface = null;
+    private SurfaceHolder mSurfaceHolder;
+    private Thread mDecodeThread;
+    private MediaCodec mCodec;
+    private boolean mStopFlag = false;
+    private DataInputStream mInputStream;
+    private int Video_Width = 1920;
+    private int Video_Height = 720;
+    private int FrameRate = 30;
+    private Boolean isUsePpsAndSps = false;
+    private String filePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/test1.h264";
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            Toast.makeText(MainActivity.this, "播放结束!", Toast.LENGTH_LONG).show();
         }
-//配置编码器参数
-        mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-//启动编码器
-        mediaCodec.start();
-//创建保存编码后数据的文件
-        createfile();
-    }
+    };
 
-    private static String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/test1.h264";
-    private BufferedOutputStream outputStream;
+    private static int yuvqueuesize = 10;
 
-    private void createfile() {
-        File file = new File(path);
-        if (file.exists()) {
-            file.delete();
+    //待解码视频缓冲队列，静态成员！
+    public static ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<byte[]>(yuvqueuesize);
+
+    private AvcEncoder avcCodec;
+    private Button mStartBtn;
+    private SurfaceView surfaceview;
+    private SurfaceHolder surfaceHolder;
+
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        //保持屏幕常亮
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setContentView(R.layout.activity_main);
+        mStartBtn = findViewById(R.id.main_btn);
+        File f = new File(filePath);
+        if (!f.exists()) {
+            Toast.makeText(this, "指定文件不存在", Toast.LENGTH_LONG).show();
+            return;
         }
         try {
-            outputStream = new BufferedOutputStream(new FileOutputStream(file));
-        } catch (Exception e) {
+        //获取文件输入流
+            mInputStream = new DataInputStream(new FileInputStream(new File(filePath)));
+        } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
-    }
+        surfaceview = (SurfaceView) findViewById(R.id.surfaceview);
+        surfaceHolder = surfaceview.getHolder();
+        surfaceHolder.addCallback(this);
 
-    private void StopEncoder() {
-        try {
-            mediaCodec.stop();
-            mediaCodec.release();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public boolean isRuning = false;
-
-    public void StopThread() {
-        isRuning = false;
-        try {
-            StopEncoder();
-            outputStream.flush();
-            outputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    int count = 0;
-
-    public void StartEncoderThread() {
-        Thread EncoderThread = new Thread(new Runnable() {
+        mStartBtn.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void run() {
-                isRuning = true;
-                byte[] input = null;
-                long pts = 0;
-                long generateIndex = 0;
-
-                while (isRuning) {
-//访问MainActivity用来缓冲待解码数据的队列
-                    if (Demo6Activity.YUVQueue.size() > 0) {
-//从缓冲队列中取出一帧
-                        input = Demo6Activity.YUVQueue.poll();
-                        byte[] yuv420sp = new byte[m_width * m_height * 3 / 2];
-//把待编码的视频帧转换为YUV420格式
-                        NV21ToNV12(input, yuv420sp, m_width, m_height);
-                        input = yuv420sp;
-                    }
-                    if (input != null) {
-                        try {
-                            long startMs = System.currentTimeMillis();
-//编码器输入缓冲区
-                            ByteBuffer[] inputBuffers = mediaCodec.getInputBuffers();
-//编码器输出缓冲区
-                            ByteBuffer[] outputBuffers = mediaCodec.getOutputBuffers();
-                            int inputBufferIndex = mediaCodec.dequeueInputBuffer(-1);
-                            if (inputBufferIndex >= 0) {
-                                pts = computePresentationTime(generateIndex);
-                                ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
-                                inputBuffer.clear();
-//把转换后的YUV420格式的视频帧放到编码器输入缓冲区中
-                                inputBuffer.put(input);
-                                mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, pts, 0);
-                                generateIndex += 1;
-                            }
-
-                            MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-                            int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
-                            while (outputBufferIndex >= 0) {
-//Log.i("AvcEncoder", "Get H264 Buffer Success! flag = "+bufferInfo.flags+",pts = "+bufferInfo.presentationTimeUs+"");
-                                ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-                                byte[] outData = new byte[bufferInfo.size];
-                                outputBuffer.get(outData);
-                                if (bufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG) {
-                                    configbyte = new byte[bufferInfo.size];
-                                    configbyte = outData;
-                                } else if (bufferInfo.flags == BUFFER_FLAG_KEY_FRAME) {
-                                    byte[] keyframe = new byte[bufferInfo.size + configbyte.length];
-                                    System.arraycopy(configbyte, 0, keyframe, 0, configbyte.length);
-//把编码后的视频帧从编码器输出缓冲区中拷贝出来
-                                    System.arraycopy(outData, 0, keyframe, configbyte.length, outData.length);
-
-                                    outputStream.write(keyframe, 0, keyframe.length);
-                                } else {
-//写到文件中
-                                    outputStream.write(outData, 0, outData.length);
-                                }
-
-                                mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
-                                outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
-                            }
-
-                        } catch (Throwable t) {
-                            t.printStackTrace();
-                        }
-                    } else {
-                        try {
-                            Thread.sleep(500);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
+            public void onClick(View v) {
+                checkRecordPermission();
             }
         });
-        EncoderThread.start();
+
     }
 
-    private long computePresentationTime(long frameIndex) {
-        return 132 + frameIndex * 1000000 / m_framerate;
-    }
-
-    private byte[] NV21ToNV12(byte[] nv21, byte[] nv12, int width, int height) {
-        if (nv21 == null || nv12 == null) return null;
-        int framesize = width * height;
-        int i = 0, j = 0;
-        System.arraycopy(nv21, 0, nv12, 0, framesize);
-        for (i = 0; i < framesize; i++) {
-            nv12[i] = nv21[i];
-        }
-        for (j = 0; j < framesize / 2; j += 2) {
-            nv12[framesize + j - 1] = nv21[j + framesize];
-        }
-        for (j = 0; j < framesize / 2; j += 2) {
-            nv12[framesize + j] = nv21[j + framesize - 1];
-        }
-        return nv12;
-    }
-
-    private void YV12toNV12(byte[] yv12bytes, byte[] nv12bytes, int width, int height) {
-
-        int nLenY = width * height;
-        int nLenU = nLenY / 4;
-
-
-        System.arraycopy(yv12bytes, 0, nv12bytes, 0, width * height);
-        for (int i = 0; i < nLenU; i++) {
-            nv12bytes[nLenY + 2 * i] = yv12bytes[nLenY + i];
-            nv12bytes[nLenY + 2 * i + 1] = yv12bytes[nLenY + nLenU + i];
+    private void checkRecordPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ActivityCompat.checkSelfPermission(getBaseContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                    && ActivityCompat.checkSelfPermission(getBaseContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                initCameraView();
+            } else {
+                requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
+            }
         }
     }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (0 == requestCode) {
+            if (ActivityCompat.checkSelfPermission(getBaseContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            }
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private void initCameraView() {
+
+    }
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        try {
+//通过多媒体格式名创建一个可用的解码器
+            mCodec = MediaCodec.createDecoderByType("video/avc");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+//初始化编码器
+        final MediaFormat mediaformat = MediaFormat.createVideoFormat("video/avc", Video_Width, Video_Height);
+//获取h264中的pps及sps数据
+        if (isUsePpsAndSps) {
+            byte[] header_sps = {0, 0, 0, 1, 103, 66, 0, 42, (byte) 149, (byte) 168, 30, 0, (byte) 137, (byte) 249, 102, (byte) 224, 32, 32, 32, 64};
+            byte[] header_pps = {0, 0, 0, 1, 104, (byte) 206, 60, (byte) 128, 0, 0, 0, 1, 6, (byte) 229, 1, (byte) 151, (byte) 128};
+            mediaformat.setByteBuffer("csd-0", ByteBuffer.wrap(header_sps));
+            mediaformat.setByteBuffer("csd-1", ByteBuffer.wrap(header_pps));
+        }
+//设置帧率
+        mediaformat.setInteger(MediaFormat.KEY_FRAME_RATE, FrameRate);
+//https://developer.android.com/reference/android/media/MediaFormat.html#KEY_MAX_INPUT_SIZE
+//设置配置参数，参数介绍 ：
+// format 如果为解码器，此处表示输入数据的格式；如果为编码器，此处表示输出数据的格式。
+//surface 指定一个surface，可用作decode的输出渲染。
+//crypto 如果需要给媒体数据加密，此处指定一个crypto类.
+// flags 如果正在配置的对象是用作编码器，此处加上CONFIGURE_FLAG_ENCODE 标签。
+        mCodec.configure(mediaformat, holder.getSurface(), null, 0);
+        startDecodingThread();
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+
+    }
+
+    private void startDecodingThread() {
+        mCodec.start();
+        mDecodeThread = new Thread(new decodeH264Thread());
+        mDecodeThread.start();
+    }
+
+    /**
+     * @author ldm
+     * @description 解码线程
+     * @time 2016/12/19 16:36
+     */
+    private class decodeH264Thread implements Runnable {
+        @Override
+        public void run() {
+            try {
+                decodeLoop();
+            } catch (Exception e) {
+            }
+        }
+
+        private void decodeLoop() {
+//存放目标文件的数据
+            ByteBuffer[] inputBuffers = mCodec.getInputBuffers();
+//解码后的数据，包含每一个buffer的元数据信息，例如偏差，在相关解码器中有效的数据大小
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            long startMs = System.currentTimeMillis();
+            long timeoutUs = 10000;
+            byte[] marker0 = new byte[]{0, 0, 0, 1};
+            byte[] dummyFrame = new byte[]{0x00, 0x00, 0x01, 0x20};
+            byte[] streamBuffer = null;
+            try {
+                streamBuffer = getBytes(mInputStream);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            int bytes_cnt = 0;
+            while (mStopFlag == false) {
+                bytes_cnt = streamBuffer.length;
+                if (bytes_cnt == 0) {
+                    streamBuffer = dummyFrame;
+                }
+
+                int startIndex = 0;
+                int remaining = bytes_cnt;
+                while (true) {
+                    if (remaining == 0 || startIndex >= remaining) {
+                        break;
+                    }
+                    int nextFrameStart = KMPMatch(marker0, streamBuffer, startIndex + 2, remaining);
+                    if (nextFrameStart == -1) {
+                        nextFrameStart = remaining;
+                    } else {
+                    }
+
+                    int inIndex = mCodec.dequeueInputBuffer(timeoutUs);
+                    if (inIndex >= 0) {
+                        ByteBuffer byteBuffer = inputBuffers[inIndex];
+                        byteBuffer.clear();
+                        byteBuffer.put(streamBuffer, startIndex, nextFrameStart - startIndex);
+//在给指定Index的inputbuffer[]填充数据后，调用这个函数把数据传给解码器
+                        mCodec.queueInputBuffer(inIndex, 0, nextFrameStart - startIndex, 0, 0);
+                        startIndex = nextFrameStart;
+                    } else {
+                        Log.e(TAG, "aaaaa");
+                        continue;
+                    }
+
+                    int outIndex = mCodec.dequeueOutputBuffer(info, timeoutUs);
+                    if (outIndex >= 0) {
+//帧控制是不在这种情况下工作，因为没有PTS H264是可用的
+                        while (info.presentationTimeUs / 1000 > System.currentTimeMillis() - startMs) {
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        boolean doRender = (info.size != 0);
+//对outputbuffer的处理完后，调用这个函数把buffer重新返回给codec类。
+                        mCodec.releaseOutputBuffer(outIndex, doRender);
+                    } else {
+                        Log.e(TAG, "bbbb");
+                    }
+                }
+                mStopFlag = true;
+                mHandler.sendEmptyMessage(0);
+            }
+        }
+    }
+
+    public static byte[] getBytes(InputStream is) throws IOException {
+        int len;
+        int size = 1024;
+        byte[] buf;
+        if (is instanceof ByteArrayInputStream) {
+            size = is.available();
+            buf = new byte[size];
+            len = is.read(buf, 0, size);
+        } else {
+// BufferedOutputStream bos=new BufferedOutputStream(new ByteArrayOutputStream());
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            buf = new byte[size];
+            while ((len = is.read(buf, 0, size)) != -1)
+                bos.write(buf, 0, len);
+            buf = bos.toByteArray();
+        }
+        Log.e(TAG, "bbbb");
+        return buf;
+    }
+
+    private int KMPMatch(byte[] pattern, byte[] bytes, int start, int remain) {
+        try {
+            Thread.sleep(30);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        int[] lsp = computeLspTable(pattern);
+
+        int j = 0; // Number of chars matched in pattern
+        for (int i = start; i < remain; i++) {
+            while (j > 0 && bytes[i] != pattern[j]) {
+// Fall back in the pattern
+                j = lsp[j - 1]; // Strictly decreasing
+            }
+            if (bytes[i] == pattern[j]) {
+// Next char matched, increment position
+                j++;
+                if (j == pattern.length)
+                    return i - (j - 1);
+            }
+        }
+        return -1; // Not found
+    }
+
+    private int[] computeLspTable(byte[] pattern) {
+        int[] lsp = new int[pattern.length];
+        lsp[0] = 0; // Base case
+        for (int i = 1; i < pattern.length; i++) {
+// Start by assuming we're extending the previous LSP
+            int j = lsp[i - 1];
+            while (j > 0 && pattern[i] != pattern[j])
+                j = lsp[j - 1];
+            if (pattern[i] == pattern[j])
+                j++;
+            lsp[i] = j;
+        }
+        return lsp;
+    }
+
 
 }
-*/

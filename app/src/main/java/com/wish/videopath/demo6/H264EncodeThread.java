@@ -52,7 +52,7 @@ public class H264EncodeThread extends Thread {
     public void run() {
         super.run();
         try {
-            out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "camera.h264");
+            out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), demo6Activity.FILENAME264);
             out264File.createNewFile();
             fos = new FileOutputStream(out264File);
             //构建对应的MeidaFormat
