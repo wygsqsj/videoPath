@@ -39,9 +39,9 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
 
     private Camera.Parameters parameters;
 
-    int width = 1280;
+    int width = 640;
 
-    int height = 720;
+    int height = 360;
 
     int framerate = 30;
 
@@ -97,7 +97,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         initBackCamera();
-        this.surface =  holder.getSurface();
+        this.surface = holder.getSurface();
     }
 
     @Override

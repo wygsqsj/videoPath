@@ -204,7 +204,7 @@ public class H264DecodeThread extends Thread {
     private static int bitIndex = 0;//当前的下标
 
     /**
-     * 解析哥伦布编码拿到当前对应原始数据
+     * 无符号哥伦布编码
      * 哥伦布编码 以 1 为间隔，1前面的0代表往后堆读取的位数如： 0001 0100，1前面3个0，代表从1往后的3位都是当前类型的数据
      * 0x80 即 1000 0000 ，一个字节8位，取出当前字节里面1所在的位置，例如 0001 0100
      * 从最高位开始遍历，每次1000 0000 向右移动一位，然后 & 当前的字节数据，如果当前字节数据的当前位为1，那么
@@ -240,22 +240,38 @@ public class H264DecodeThread extends Thread {
          * 二进制数每向右移动一位，十进制对应的二进制也要向左移动一位循环得出 1 右边的位数所对应的十进制数值
          * 最后1右移length的位置+右边的十进制数 = 转换后的十进制数
          */
-        int dev = 0;//当前10进制对应的值
+        bitIndex++;
+        int decimal = 0;//当前10进制对应的值
         for (int i = 0; i < length; i++) {
-            bitIndex++;
             //向右移动0对应的位数，每次移动一次，转换10进制时增一个高位
-            dev <<= 1;
+            decimal <<= 1;
             System.out.println("startIndex: " + bitIndex);
             //当前位置
             if ((bytes[bitIndex / 8] & (0x80 >> (bitIndex % 8))) != 0) {
-                dev += 1;
-                System.out.println("dev +=1 :" + dev);
+                decimal += 1;
+                System.out.println("dev +=1 :" + decimal);
             }
-            System.out.println(" dev <<= 1:" + (dev));
+            bitIndex++;
+            System.out.println(" dev <<= 1:" + (decimal));
         }
         //计算出右侧的数值加上1这个最高位就是解码出来的数据，根据规则减去1就是哥伦布编码前的原始数据
-        int value = (1 << length) + dev - 1;
+        int value = (1 << length) + decimal - 1;
         return value;
+    }
+
+    /**
+     * 有符号的哥伦布编码
+     * 换算方式：n = (-1)^(k+1) * ceil(k/2)。
+     */
+    private static int getSignedOriginData(byte[] bytes) {
+        int UeVal = getDecodeOriginData(bytes);
+        double k = UeVal;
+        int nValue = (int) Math.ceil(k / 2);
+        //偶数取反，即(-1)^(k+1)
+        if (UeVal % 2 == 0) {
+            nValue = -nValue;
+        }
+        return nValue;
     }
 
     //16进制源文件转byte数组
@@ -269,10 +285,7 @@ public class H264DecodeThread extends Thread {
         return bs;
     }
 
-    public static void getNALUType() {
-        String byteStr =
-                "00 00 00 01 67 64 00 1F AC B4 02 80 2D D2 90 50 20 20 6D 0A 13 50".replaceAll(" ", "");
-        byte[] bytes = getByteArray(byteStr);
+    public static void getNALUType(byte[] bytes) {
         bitIndex = 4 * 8;//跳过0x0001分隔符
         int forbidden_bit = getBitDecimalOfLength(1, bytes);//第一位是 禁止位 0表示无错误 1表示有问题
         int importance = getBitDecimalOfLength(2, bytes);//2-3位表示重要性，0-3越高越好
@@ -284,47 +297,72 @@ public class H264DecodeThread extends Thread {
             int str1Flag = getBitDecimalOfLength(1, bytes);
             int str2Flag = getBitDecimalOfLength(1, bytes);
             int str3Flag = getBitDecimalOfLength(1, bytes);
-            //4个0 固定的标志位
-            int zero_4bit = getBitDecimalOfLength(4, bytes);
+            int str4Flag = getBitDecimalOfLength(1, bytes);
+            int str5Flag = getBitDecimalOfLength(1, bytes);
+            // 固定的标志位
+            int reserved_zero_2bits = getBitDecimalOfLength(2, bytes);
             //这8位表示最大分辨率，最大帧数等也 是用来控制编码质量
-            int max_frames = getBitDecimalOfLength(8, bytes);
-            //后面开始使用哥伦布编码，一般为0，代表开始使用哥伦布编码
+            int level_idc = getBitDecimalOfLength(8, bytes);
+            //后面开始使用哥伦布编码，第一位原始数据一般为0，代表开始使用哥伦布编码
             int seq_parameter_set_id = getDecodeOriginData(bytes);
-            //采样率 0-3的范围，0单色 1：yuv420 2：yuv422 3：yuv444
-            int format_idc = getDecodeOriginData(bytes);
-            //当前编码等级 ，100 为high，表示高画质
-            if (profile_idc == 100) {
+            //当前编码等级，100 为high，表示高画质
+            if( profile_idc == 100 || profile_idc == 110 ||
+            profile_idc == 122 || profile_idc == 244 || profile_idc == 44 ||
+            profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
+            profile_idc == 128 || profile_idc == 138 || profile_idc == 139 ||
+            profile_idc == 134 || profile_idc == 135 ) {
                 //颜色位深
                 int chroma_format_idc = getDecodeOriginData(bytes);
+                if (chroma_format_idc == 3) {
+                    int residual_colour_transform_flag = getBitDecimalOfLength(1, bytes);
+                }
                 //视频位深 0 8位
-                int bt_depth_luma_minus8 = getDecodeOriginData(bytes);
+                int bit_depth_luma_minus8 = getDecodeOriginData(bytes);
                 //颜色位深
-                int bt_depth_chroma_minus8 = getDecodeOriginData(bytes);
+                int bit_depth_chroma_minus8 = getDecodeOriginData(bytes);
                 //转换标志位，占1个bit位
                 int qpprime_y_zero_tranform_bypass_flag = getBitDecimalOfLength(1, bytes);
                 //缩放标志位
-                int seq_scaling_matrix_present_fla = getBitDecimalOfLength(1, bytes);
+                int seq_scaling_matrix_present_flag = getBitDecimalOfLength(1, bytes);
+                int[] seq_scaling_list_present_flag = new int[8];
+                if (seq_scaling_matrix_present_flag != 0) {
+                    for (int i = 0; i < 8; i++) {
+                        seq_scaling_list_present_flag[i] = getBitDecimalOfLength(1, bytes);
+                    }
+                }
             }
             //最大帧率
             int log2_max_frame_num_minus4 = getDecodeOriginData(bytes);
-            //播放顺序和解码顺序的映射
+            //
             int pic_order_cnt_type = getDecodeOriginData(bytes);
-            //标志位
-            int log2_max_pic = getDecodeOriginData(bytes);
-            //编码顺序索引
+            if (pic_order_cnt_type == 0) {
+                int log2_max_pic_order_cnt_lsb_minus4 = getDecodeOriginData(bytes);
+            } else if (pic_order_cnt_type == 1) {
+                int delta_pic_order_always_zero_flag = getBitDecimalOfLength(1, bytes);
+                //有符号哥伦布编码
+                int offset_for_non_ref_pic = getSignedOriginData(bytes);
+                int offset_for_top_to_bottom_field = getSignedOriginData(bytes);
+
+                int num_ref_frames_in_pic_order_cnt_cycle = getDecodeOriginData(bytes);
+
+                int[] offset_for_ref_frame = new int[num_ref_frames_in_pic_order_cnt_cycle];
+                for (int i = 0; i < num_ref_frames_in_pic_order_cnt_cycle; i++) {
+                    offset_for_ref_frame[i] = getSignedOriginData(bytes);
+                }
+            }
             int num_ref_frames = getDecodeOriginData(bytes);
-            //标志位
-            int gaps_flag = getBitDecimalOfLength(1, bytes);
+            int gaps_in_frame_num_value_allowed_flag = getBitDecimalOfLength(1, bytes);
             //视频宽,指宏块的个数
-            int width_ = (getDecodeOriginData(bytes) + 1) * 16;
+            int pic_width_in_mbs_minus1 = getDecodeOriginData(bytes);
             //视频高,指宏块的个数
-            int heigth_ = getDecodeOriginData(bytes);
+            int pic_height_in_map_units_minus1 = getDecodeOriginData(bytes);
 
+            System.out.println("宽：" + pic_width_in_mbs_minus1);
+            System.out.println("高：" + pic_height_in_map_units_minus1);
 
-        }/* else if () {
-        }else if () {
-        }*/
-
+            System.out.println("宽：" + (pic_width_in_mbs_minus1 + 1) * 16);
+            System.out.println("高：" + (pic_height_in_map_units_minus1 + 1) * 16);
+        }
     }
 
     //获取对应长度的数据，转换成10进制
@@ -341,7 +379,17 @@ public class H264DecodeThread extends Thread {
     }
 
     public static void main(String[] args) {
-        getNALUType();
+        String byteStr =
+                "00 00 00 01 67 42 00 28 ab 40 22 01 e3 cb cd c0 80 80 a9 02".replaceAll(" ", "");
+        byte[] bytes = getByteArray(byteStr);
+        getSizeFromSps(bytes);
+    }
 
+    public static void getSizeFromSps(byte[] data) {
+        for (int i = 0; i < data.length - 4; i++) {
+            if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 0 && data[i + 3] == 1 && data[i + 4] == 0x67) {
+                getNALUType(data);
+            }
+        }
     }
 }
