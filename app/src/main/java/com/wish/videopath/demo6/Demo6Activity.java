@@ -8,6 +8,7 @@ import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -23,6 +24,8 @@ import com.wish.videopath.R;
 
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import static com.wish.videopath.MainActivity.LOG_TAG;
 
 /**
  * MediaCodec编解码，将摄像头捕捉的视频内容保存成.h264并显示倒surfaceView中
@@ -58,6 +61,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     private MediaProjectionManager mediaManager;
     private ActivityResultLauncher<Intent> resultLauncher;
     private Surface surface;
+    private byte[] callbackBuffer;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -128,7 +132,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     }
 
     public void putYUVData(byte[] buffer, int length) {
-//        Log.i(LOG_TAG, "获取到摄像头数据" + length);
+        Log.i(LOG_TAG, "获取到摄像头数据" + length);
         if (YUVQueue.size() >= 10) {
             YUVQueue.poll();
         }
@@ -143,8 +147,6 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
             throw new RuntimeException("摄像机打开失败！");
         }
         try {
-            //设置camera数据回调
-            mCamera.setPreviewCallback(this);
             mCamera.setDisplayOrientation(90);
             if (parameters == null) {
                 parameters = mCamera.getParameters();
@@ -160,7 +162,10 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
             //将完全初始化的SurfaceHolder传入到setPreviewDisplay(SurfaceHolder)中
             //没有surface的话，相机不会开启preview预览
             mCamera.setPreviewDisplay(surfaceview.getHolder());
-        } catch (IOException e) {
+            callbackBuffer = new byte[width * height * 3 / 2];
+            mCamera.addCallbackBuffer(callbackBuffer);
+            mCamera.setPreviewCallback(this);
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -255,7 +260,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     //播放
     public void startPlay(View view) {
         if (surface != null) {
-            new H264DecodeThread(this, width, height, framerate, biterate, surface);
+            new H264DecodeThread(this, width, height, framerate, biterate, surface).start();
         }
     }
 }
