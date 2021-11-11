@@ -61,7 +61,6 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     private ActivityResultLauncher<Intent> resultLauncher;
     private Surface surface;
     private byte[] callbackBuffer;
-    private H264DecodeThread decodeThread;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -263,8 +262,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     //播放
     public void startPlay(View view) {
         if (surface != null) {
-            decodeThread = new H264DecodeThread(this, width, height, framerate, biterate, surface);
-            decodeThread.start();
+            new H264DecodeThread(this, width, height, framerate, biterate, surface).start();
         }
     }
 }

@@ -7,8 +7,6 @@ import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 
-import androidx.annotation.RequiresApi;
-
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
@@ -17,14 +15,17 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 
+import androidx.annotation.RequiresApi;
+
 import static com.wish.videopath.MainActivity.LOG_TAG;
 
 /**
  * 读取H264数据进行解析显示到surface中
  * h264为定长和变长编码混合的，渲染需要的数据是通过解析变长编码来获取到的
+ * 从文件中读取数据，实时计算分隔符的位置
  */
 
-public class H264DecodeThread extends Thread {
+public class H264DecodeThreadV2 extends Thread {
 
     private Demo6Activity demo6Activity;
     private int width = 1280;
@@ -33,10 +34,13 @@ public class H264DecodeThread extends Thread {
     private int biterate = 8500 * 1000;
     private Surface surface;
     private FileInputStream fis;
+    private DataInputStream is;
     private File h264File;
     private MediaCodec decodeCodec;
+    private boolean hasVideo;
+    private boolean isStop;
 
-    public H264DecodeThread(Demo6Activity demo6Activity, int width, int height, int framerate, int biterate, Surface surface) {
+    public H264DecodeThreadV2(Demo6Activity demo6Activity, int width, int height, int framerate, int biterate, Surface surface) {
         this.demo6Activity = demo6Activity;
         this.width = width;
         this.height = height;
@@ -45,7 +49,6 @@ public class H264DecodeThread extends Thread {
         this.surface = surface;
     }
 
-
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     public void run() {
@@ -53,6 +56,7 @@ public class H264DecodeThread extends Thread {
         try {
             h264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), Demo6Activity.FILENAME264);
             fis = new FileInputStream(h264File);
+            is = new DataInputStream(fis);
             //初始化codec
             decodeCodec = MediaCodec.createDecoderByType("video/avc");
             //初始化编码器
@@ -63,34 +67,52 @@ public class H264DecodeThread extends Thread {
             decodeCodec.configure(mediaformat, surface, null, 0);
             decodeCodec.start();
 
-            byte[] bytes = getBytes();
             //开始索引和当前得索引
-            int startIndex = 0, nextIndex = 0;
-            int totalSize = bytes.length;
+            long startIndex = 1;
+            long nextIndex = 0;
+            int totalSize = fis.available();
+            boolean isFinish = true;
             Log.i(LOG_TAG, "当前的数据大小" + totalSize);
+            RandomAccessFile in = new RandomAccessFile(h264File, "r");
+
+            Log.i(LOG_TAG, "当前的指针" + in.getFilePointer());
+
             MediaCodec.BufferInfo decodeBufferInfo = new MediaCodec.BufferInfo();//用于描述解码得到的byte[]数据的相关信息
+
             while (true) {
                 Log.i(LOG_TAG, "当前的startIndex" + startIndex);
                 if (startIndex >= totalSize) {
-                    break;
-                }
-                //sps为所有h264文件的起始值，也就是所有的h264起始值时0x01，所以加上一个随意的值，前面的sps就匹配不了了，否则nextIndex会永远读取不到数据
-                nextIndex = findByFrame(bytes, startIndex + 1);
-                Log.i(LOG_TAG, "当前的nextIndex" + nextIndex);
-                if (nextIndex == -1) {
+                    Log.i(LOG_TAG, "到末尾了" + nextIndex);
                     break;
                 }
                 //获取codec输入数据载体
                 int inputIndex = decodeCodec.dequeueInputBuffer(10000);
                 if (inputIndex != -1) {
                     Log.i(LOG_TAG, "找到了input 小推车" + inputIndex);
-                    ByteBuffer[] byteBuffers = decodeCodec.getInputBuffers();
+                    //跳过分隔符
+                    in.skipBytes(1);
+                    Log.i(LOG_TAG, "跳过后的指针" + in.getFilePointer());
+                    //找到一个NALU单元
+                    while (true) {
+                        if (findByFrame(in)) {//找到分隔符
+                            nextIndex = in.getFilePointer();
+                            Log.i(LOG_TAG, "当前的nextIndex" + nextIndex);
+                            in.seek(startIndex);
+                            break;
+                        }
+                    }
+
+                    int dataLength = (int) (nextIndex - startIndex);
+                    byte[] bytes = new byte[dataLength];
+                    in.read(bytes, 0, dataLength);
+                    Log.i(LOG_TAG, "当前NALU长度" + dataLength);
                     ByteBuffer inputBuffer = decodeCodec.getInputBuffer(inputIndex);
                     inputBuffer.clear();
                     //把下一帧放入解码缓存
-                    inputBuffer.put(bytes, startIndex, nextIndex - startIndex);
-                    decodeCodec.queueInputBuffer(inputIndex, 0, nextIndex - startIndex, 0, 0);
+                    inputBuffer.put(bytes, 0, dataLength);
+                    decodeCodec.queueInputBuffer(inputIndex, 0, dataLength, 0, 0);
                     //下一帧获取从当前末尾开始
+                    Log.i(LOG_TAG, "当前的指针" + in.getFilePointer());
                     startIndex = nextIndex;
                 } else {
                     Log.i(LOG_TAG, "没有可用的input 小推车");
@@ -129,32 +151,17 @@ public class H264DecodeThread extends Thread {
         }
     }
 
-
-
     //获取当前分隔符的位置，即0x01前的一位，目的是为了找出NAL单元的末尾
-    private int findByFrame(byte[] bytes, int startIndex) {
-        for (int i = startIndex; i < bytes.length - 4; i++) {
-            if (bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 0 && bytes[i + 3] == 1) {
-                return i;
-            }
+    private boolean findByFrame(RandomAccessFile in) throws IOException {
+        if (in.read() == 0 && in.read() == 0 && in.read() == 0 && in.read() == 1) {
+            in.seek(in.getFilePointer() - 4);
+            return true;
         }
-        return -1;
+        if (in.getFilePointer() >= in.length() - 1) {
+            return true;
+        }
+        return false;
     }
 
-    /**
-     * 获取264所有的数据，一次性读取到内存中
-     */
-    private byte[] getBytes() throws IOException {
-        int len;
-        int size = 1024;
-        byte[] bytes;
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        bytes = new byte[1024];
-        while ((len = fis.read(bytes, 0, size)) != -1) {
-            bos.write(bytes, 0, len);
-        }
-        bytes = bos.toByteArray();
-        return bytes;
-    }
 
 }
