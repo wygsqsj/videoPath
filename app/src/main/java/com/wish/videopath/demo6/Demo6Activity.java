@@ -22,7 +22,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.wish.videopath.R;
 
-import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.wish.videopath.MainActivity.LOG_TAG;
@@ -62,6 +61,7 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     private ActivityResultLauncher<Intent> resultLauncher;
     private Surface surface;
     private byte[] callbackBuffer;
+    private H264DecodeThread decodeThread;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -182,6 +182,9 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         if (screenThread != null) {
             screenThread.stopEncode();
         }
+        if (screenThread != null) {
+            screenThread.stopEncode();
+        }
 
         if (null != mCamera) {
             mCamera.setPreviewCallback(null);
@@ -260,7 +263,8 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     //播放
     public void startPlay(View view) {
         if (surface != null) {
-            new H264DecodeThread(this, width, height, framerate, biterate, surface).start();
+            decodeThread = new H264DecodeThread(this, width, height, framerate, biterate, surface);
+            decodeThread.start();
         }
     }
 }
