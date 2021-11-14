@@ -292,7 +292,7 @@ public class H264EncodeScreenThread extends Thread {
         return nv12;
     }
 
-    //Camera2的时候设置yuv格式为NV21，转换成YV12
+    //Camera2的时候设置yuv格式为YV21，转换成YV12
     private void YV12toNV12(byte[] yv12bytes, byte[] nv12bytes, int width, int height) {
         int nLenY = width * height;
         int nLenU = nLenY / 4;
@@ -301,6 +301,27 @@ public class H264EncodeScreenThread extends Thread {
         for (int i = 0; i < nLenU; i++) {
             nv12bytes[nLenY + 2 * i] = yv12bytes[nLenY + i];
             nv12bytes[nLenY + 2 * i + 1] = yv12bytes[nLenY + nLenU + i];
+        }
+    }
+
+    //旋转90度的算法:
+    public void rotateYUV240SP(byte[] src, byte[] des, int width, int height) {
+        int wh = width * height;
+        //旋转Y
+        int k = 0;
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                des[k] = src[width * j + i];
+                k++;
+            }
+        }
+
+        for (int i = 0; i < width; i += 2) {
+            for (int j = 0; j < height / 2; j++) {
+                des[k] = src[wh + width * j + i];
+                des[k + 1] = src[wh + width * j + i + 1];
+                k += 2;
+            }
         }
     }
 

@@ -1,5 +1,8 @@
 package com.wish.videopath.demo6;
 
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
@@ -48,6 +51,8 @@ public class H264EncodeThread extends Thread {
         this.biterate = biterate;
     }
 
+    boolean isflag = false;
+
     @Override
     public void run() {
         super.run();
@@ -55,12 +60,12 @@ public class H264EncodeThread extends Thread {
             out264File = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES), demo6Activity.FILENAME264);
             out264File.createNewFile();
             fos = new FileOutputStream(out264File);
-            //构建对应的MeidaFormat
-            MediaFormat mediaFormat = MediaFormat.createVideoFormat(encodeMine, width, height);
+            //构建对应的MeidaFormat，后期我们会将摄像头数据旋转90读成为竖屏，所以此处调换一下宽高
+            MediaFormat mediaFormat = MediaFormat.createVideoFormat(encodeMine, height, width);
             //设置yuv格式
-            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
+            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
             //比特率
-            mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 5);
+            mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 3 / 2);
             //描述视频格式的帧速率
             mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, framerate);
             //关键帧之间的间隔，此处指定为1秒
@@ -91,22 +96,29 @@ public class H264EncodeThread extends Thread {
                             inputBuffer.clear();//扔出去里面旧的东西
                             //从yuv队列中取出数据
                             byte[] yuvData = demo6Activity.getYUVQueue().poll();
+                            //摄像头默认是横着的，需要旋转90度
+                            byte[] revolveData = revolveYuv(yuvData);
+                            //保存一张yuv图片
+                            if (!isflag) {
+                                capture(revolveData);
+                                isflag = true;
+                            }
                             byte[] yuv420sp = new byte[width * height * 3 / 2];
                             //把待编码的视频帧转换为YUV420格式
-                            NV21ToNV12(yuvData, yuv420sp, width, height);
+                            NV21ToNV12(revolveData, yuv420sp, height, width);
 
                             //audioExtractor没猪了，也要告知一下
-                            if (yuv420sp.length < 0) {
+                            if (revolveData.length < 0) {
                                 Log.i(LOG_TAG, "当前yuv数据异常");
                             } else {//拿到猪
                                 //把转换后的YUV420格式的视频帧放到编码器输入缓冲区中
                                 Log.i(LOG_TAG, "yuv数据转换成功，当前数据的数据长度为：" + yuvData.length);
-                                inputBuffer.limit(yuv420sp.length);
-                                inputBuffer.put(yuvData, 0, yuvData.length);
+                                inputBuffer.limit(revolveData.length);
+                                inputBuffer.put(revolveData, 0, yuvData.length);
                                 //计算时间戳,配置了但是没有用，所以此处传0也可以
                                 pts = computePresentationTime(generateIndex);
                                 Log.i(LOG_TAG, "当前时间戳：" + pts);
-                                encodeCodec.queueInputBuffer(inputIndex, 0, yuv420sp.length, pts, 0);
+                                encodeCodec.queueInputBuffer(inputIndex, 0, revolveData.length, pts, 0);
                                 generateIndex += 1;
                             }
                         } else {
@@ -191,6 +203,45 @@ public class H264EncodeThread extends Thread {
                 }
             }
         }
+    }
+
+    private void capture(byte[] data) {
+        File img = new File(demo6Activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "sdf.jpg");
+        try {
+            img.createNewFile();
+            FileOutputStream fos = new FileOutputStream(img);
+            YuvImage yuvImage = new YuvImage(data, ImageFormat.NV21, height, width, null);
+            yuvImage.compressToJpeg(new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight()),
+                    100, fos);
+        } catch (Exception e) {
+
+
+        }
+    }
+
+    /**
+     * 旋转yuv数据，将横屏数据转换为竖屏
+     */
+    private byte[] revolveYuv(byte[] yuvData) {
+        byte[] revolveData = new byte[yuvData.length];
+        int y_size = width * height;
+        //uv高度
+        int uv_height = height >> 1;
+        //旋转y,左上角跑到右上角，左下角跑到左上角，从左下角开始遍历
+        int k = 0;
+        for (int i = 0; i < width; i++) {
+            for (int j = height - 1; j > -1; j--) {
+                revolveData[k++] = yuvData[width * j + i];
+            }
+        }
+        //旋转uv
+        for (int i = 0; i < width; i += 2) {
+            for (int j = uv_height - 1; j > -1; j--) {
+                revolveData[k++] = yuvData[y_size + width * j + i];
+                revolveData[k++] = yuvData[y_size + width * j + i + 1];
+            }
+        }
+        return revolveData;
     }
 
     //计算时间戳

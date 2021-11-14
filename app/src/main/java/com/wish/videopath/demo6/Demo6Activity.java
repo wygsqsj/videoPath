@@ -3,16 +3,21 @@ package com.wish.videopath.demo6;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
+import android.view.Display;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -22,6 +27,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.wish.videopath.R;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.wish.videopath.MainActivity.LOG_TAG;
@@ -38,8 +46,6 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     private Button mCameraEncode, mCameraMuxerEncode, mScreenEncode;
 
     private Camera mCamera;
-
-    private Camera.Parameters parameters;
 
     int width = 640;
 
@@ -89,10 +95,10 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         }
     }
 
-
     //摄像头获取到的yuv数据回调
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
+//        mCamera.addCallbackBuffer(callbackBuffer);
         //将当前帧图像保存在队列中
         putYUVData(data, data.length);
     }
@@ -145,24 +151,29 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
         if (mCamera == null) {
             throw new RuntimeException("摄像机打开失败！");
         }
+
         try {
-            mCamera.setDisplayOrientation(90);
-            if (parameters == null) {
-                parameters = mCamera.getParameters();
-            }
-            //获取默认的camera配置
-            parameters = mCamera.getParameters();
+            WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);//获取窗口的管理器
+            Display display = wm.getDefaultDisplay();//获得窗口里面的屏幕
+
+            Camera.Parameters parameters = mCamera.getParameters();
+
+            Log.i(LOG_TAG, "预览的宽高,w:" + width + "  h:" + height);
+            parameters.setPreviewSize(width, height);
+
+//            mCamera.setDisplayOrientation(90);
+
             //设置预览格式
             parameters.setPreviewFormat(ImageFormat.NV21);
-            //设置预览图像分辨率
-            parameters.setPreviewSize(width, height);
             //配置camera参数
             mCamera.setParameters(parameters);
             //将完全初始化的SurfaceHolder传入到setPreviewDisplay(SurfaceHolder)中
             //没有surface的话，相机不会开启preview预览
             mCamera.setPreviewDisplay(surfaceview.getHolder());
+            //NV21一帧的大小,其实就是 宽*高*3/2
             callbackBuffer = new byte[width * height * 3 / 2];
             mCamera.addCallbackBuffer(callbackBuffer);
+
             mCamera.setPreviewCallback(this);
         } catch (Exception e) {
             e.printStackTrace();
@@ -262,7 +273,8 @@ public class Demo6Activity extends AppCompatActivity implements SurfaceHolder.Ca
     //播放
     public void startPlay(View view) {
         if (surface != null) {
-            new H264DecodeThread(this, width, height, framerate, biterate, surface).start();
+            //我们编码好得视频是竖屏，所以此处调换一下宽高
+            new H264DecodeThread(this, height, width, framerate, biterate, surface).start();
         }
     }
 }

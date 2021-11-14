@@ -162,6 +162,4 @@ public class H264DecodeThreadV2 extends Thread {
         }
         return false;
     }
-
-
 }
