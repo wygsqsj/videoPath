@@ -116,7 +116,7 @@ public class DecodeAACAsyn extends Thread {
         Log.e(LOG_TAG, "Decode,当前线程： " + Thread.currentThread().getName());
         try {
             fos = new FileOutputStream(pcmFile.getAbsoluteFile());
-            audioExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.demo5mp3));
+            audioExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.see));
             int count = audioExtractor.getTrackCount();
             for (int i = 0; i < count; i++) {
                 audioFormat = audioExtractor.getTrackFormat(i);

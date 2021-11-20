@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
 
 import static com.wish.videopath.MainActivity.LOG_TAG;
 
@@ -32,6 +33,8 @@ class DecodeAACThread extends Thread {
     private File pcmFile;
     private boolean hasAudio = true;
     private FileOutputStream fos = null;
+    private int startTime = 1;
+    private int endTime = 8;
 
 
     public DecodeAACThread(Demo5Activity demo5Activity) {
@@ -57,7 +60,7 @@ class DecodeAACThread extends Thread {
         try {
             fos = new FileOutputStream(pcmFile.getAbsoluteFile());
 
-            audioExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.demo5));
+            audioExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.see));
             int count = audioExtractor.getTrackCount();
             for (int i = 0; i < count; i++) {
                 audioFormat = audioExtractor.getTrackFormat(i);
@@ -80,12 +83,22 @@ class DecodeAACThread extends Thread {
              * dequeueInputBuffer -> queueInputBuffer填充数据 -> dequeueOutputBuffer -> releaseOutputBuffer显示画面
              */
             boolean hasAudio = true;
+            audioExtractor.seekTo(startTime*1000000, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
             while (true) {
                 //所有的猪都运进猪厂后不再添加
                 if (hasAudio) {
                     //从猪肉工厂获取装猪的小推车，填充数据后发送到猪肉工厂进行处理
                     ByteBuffer[] inputBuffers = decodeCodec.getInputBuffers();//所有的小推车
                     int inputIndex = decodeCodec.dequeueInputBuffer(0);//返回当前可用的小推车标号
+
+                    long presentationTime = audioExtractor.getSampleTime();
+                    Log.i(LOG_TAG, "当前时间戳：" + presentationTime);
+                    if (presentationTime > endTime * 1000000) {
+                        Log.i(LOG_TAG, "超过时间了");
+                        decodeCodec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                        hasAudio = false;
+                        continue;
+                    }
                     if (inputIndex != -1) {
                         Log.i(LOG_TAG, "找到了input 小推车" + inputIndex);
                         //将MediaCodec数据取出来放到这个缓冲区里
@@ -108,6 +121,7 @@ class DecodeAACThread extends Thread {
                     } else {
                         Log.i(LOG_TAG, "没有可用的input 小推车");
                     }
+
                 }
 
                 //工厂已经把猪运进去了，但是是否加工成火腿肠还是未知的，我们要通过装火腿肠的筐来判断是否已经加工完了

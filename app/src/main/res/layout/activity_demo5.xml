@@ -29,5 +29,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/demo5Decode" />
 
+    <Button
+        android:id="@+id/demo5Mixing"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:onClick="mixing"
+        android:text="将两个音频混合成一个音频"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/demo5Encode" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

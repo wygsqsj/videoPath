@@ -35,7 +35,7 @@ public class H264EncodeThread extends Thread {
     private int framerate = 30;//帧率
     private int biterate = 8500 * 1000;
     private String encodeMine = "video/avc";
-    private byte[] configByte;
+    private byte[] configByte, yuvData, revolveData;
 
 
     private MediaCodec encodeCodec;
@@ -95,9 +95,9 @@ public class H264EncodeThread extends Thread {
                             ByteBuffer inputBuffer = inputBuffers[inputIndex];//拿到小推车
                             inputBuffer.clear();//扔出去里面旧的东西
                             //从yuv队列中取出数据
-                            byte[] yuvData = demo6Activity.getYUVQueue().poll();
+                            yuvData = demo6Activity.getYUVQueue().poll();
                             //摄像头默认是横着的，需要旋转90度
-                            byte[] revolveData = revolveYuv(yuvData);
+                            revolveData = revolveYuv(yuvData);
                             //保存一张yuv图片
                             if (!isflag) {
                                 capture(revolveData);
