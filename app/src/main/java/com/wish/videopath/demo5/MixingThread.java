@@ -78,13 +78,14 @@ public class MixingThread extends Thread {
     boolean hasAudio2 = true;
     boolean finishWriteInput = false;
     boolean finishWrite = false;
+    private int videoMaxBufferSize;
 
 
     public MixingThread(Demo5Activity context) {
         this.context = context;
         inputAudio1 = context.getResources().openRawResourceFd(R.raw.zlj);
-        inputAudio2 = context.getResources().openRawResourceFd(R.raw.see);
-        outFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "mixing.mp3");
+//        inputAudio2 = context.getResources().openRawResourceFd(R.raw.see);
+        outFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "mixing.mp4");
     }
 
     @Override
@@ -108,6 +109,28 @@ public class MixingThread extends Thread {
                 writeNewAudio();
             }
 
+            videoMaxBufferSize = videoTrackFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
+            ByteBuffer byteBuffer = ByteBuffer.allocateDirect(videoMaxBufferSize);
+
+//            audioMuxer.start();
+
+            videoExtractor.selectTrack(videoIndex);
+            while (true) {
+                byteBuffer.clear();
+                //把指定通道中的数据按偏移量读取到ByteBuffer中
+                int data = videoExtractor.readSampleData(byteBuffer, 0);
+                if (data < 0) {
+                    break;
+                }
+                videoBufferInfo.size = data;
+                videoBufferInfo.presentationTimeUs = videoExtractor.getSampleTime();
+                Log.i(LOG_TAG, "当前视频的pts: " + videoBufferInfo.presentationTimeUs);
+                videoBufferInfo.offset = 0;
+                videoBufferInfo.flags = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
+                //把ByteBuffer中的数据写入到在视频构造器设置的文件中
+                audioMuxer.writeSampleData(videoTrackIndex, byteBuffer, videoBufferInfo);
+                videoExtractor.advance();//读取下一帧数据
+            }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -119,6 +142,9 @@ public class MixingThread extends Thread {
             }
             if (audioMuxer != null) {
                 audioMuxer.release();
+            }
+            if (videoExtractor != null) {
+                videoExtractor.release();
             }
 
 
@@ -139,13 +165,37 @@ public class MixingThread extends Thread {
 
     }
 
+    int videoTrackIndex;
+    MediaExtractor videoExtractor;
+    int videoIndex = 0;
+    MediaFormat videoTrackFormat = null;
+
     private void initEncodeMediaCodec() throws IOException {
         //pcm文件获取
         audioMuxer = new MediaMuxer(outFile.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        videoExtractor = new MediaExtractor();
+
+ /*       File videoFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "mixer.mp4");
+        String videoPath = videoFile.getAbsolutePath();
+        videoExtractor.setDataSource(videoPath);*/
+
+        videoExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.demo4));
+
+        int trackCount = videoExtractor.getTrackCount();//得到源文件通道数
+        for (int i = 0; i < trackCount; i++) {
+            MediaFormat format = videoExtractor.getTrackFormat(i);
+            if (format.getString(MediaFormat.KEY_MIME).startsWith("video/")) {
+                videoTrackFormat = format; //获取指定（index）的通道格式
+                videoIndex = i;
+                videoTrackIndex = audioMuxer.addTrack(videoTrackFormat);
+                break;
+            }
+        }
+
+
         /*
          *手动构建编码Format,参数含义：mine类型、采样率、通道数量
-         *设置音频采样率，44100是目前的标准，但是某些设备仍然支持22050，16000，11025
-         */
+         *设置音频采样率，44100是目前的标准，但是某些设备仍然支持22050，16000，11025*/
         MediaFormat encodeFormat = MediaFormat.createAudioFormat("audio/mp4a-latm", 44100, 2);
         encodeFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
         //比特率 声音中的比特率是指将模拟声音信号转换成数字声音信号后，单位时间内的二进制数据量，是间接衡量音频质量的一个指标
@@ -191,7 +241,7 @@ public class MixingThread extends Thread {
                 inputBuffer.clear();//扔出去里面旧的东西
                 inputBuffer.limit(pcmData.length);
                 inputBuffer.put(pcmData, 0, pcmData.length);
-                encodeCodec.queueInputBuffer(inputIndex, 0, pcmData.length, 0, 0);
+                encodeCodec.queueInputBuffer(inputIndex, 0, pcmData.length, System.currentTimeMillis(), 0);
             }
         }
 
@@ -211,6 +261,9 @@ public class MixingThread extends Thread {
             } else {
                 outputBuffer = outputBuffers[outputIndex];
             }
+            long pts = System.currentTimeMillis() - audioPts;
+            Log.i(LOG_TAG, "当前音频pts: " + pts);
+            Log.i(LOG_TAG, "新的音频数据编码已经完事了");
             videoBufferInfo.size = encodeBufferInfo.size;
             videoBufferInfo.presentationTimeUs = 0;
             videoBufferInfo.offset = 0;
@@ -225,6 +278,8 @@ public class MixingThread extends Thread {
             finishWrite = true;
         }
     }
+
+    long audioPts = 0;
 
 
     private void mixingAudio() {
@@ -289,7 +344,7 @@ public class MixingThread extends Thread {
                 //audioExtractor没猪了，也要告知一下
                 if (readSize < 0) {
                     Log.i(LOG_TAG, "audio1已经读取完了");
-                    audioDecode1.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                    audioDecode1.queueInputBuffer(inputIndex, 0, 0, audioExtractor1.getSampleTime(), MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     hasAudio1 = false;
                 } else {//拿到猪
                     Log.i(LOG_TAG, "audio1获取到的数据长度为：" + readSize);
@@ -342,7 +397,7 @@ public class MixingThread extends Thread {
                 //audioExtractor没猪了，也要告知一下
                 if (readSize < 0) {
                     Log.i(LOG_TAG, "audio2已经读取完了");
-                    audioDecode2.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                    audioDecode2.queueInputBuffer(inputIndex, 0, 0, audioExtractor2.getSampleTime(), MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     hasAudio2 = false;
                 } else {//拿到猪
                     Log.i(LOG_TAG, "audio2获取到的数据长度为：" + readSize);
@@ -386,7 +441,7 @@ public class MixingThread extends Thread {
         //数据格式，surface用来渲染解析出来的数据;加密用的对象；标志 encode ：1 decode：0
         audioDecode1.configure(audioFormat1, null, null, 0);
         if (audioFormat1.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
-            Log.i(LOG_TAG, "audioFormat1 最大帧大小： "+audioFormat1.getValueTypeForKey(MediaFormat.KEY_MAX_INPUT_SIZE));
+            Log.i(LOG_TAG, "audioFormat1 最大帧大小： " + audioFormat1.getValueTypeForKey(MediaFormat.KEY_MAX_INPUT_SIZE));
         }
 
 
@@ -401,7 +456,7 @@ public class MixingThread extends Thread {
         audioDecode2.configure(audioFormat2, null, null, 0);
         MediaCodec.BufferInfo decodeBufferInfo = new MediaCodec.BufferInfo();//用于描述解码得到的byte[]数据的相关信息
         if (audioFormat2.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
-            Log.i(LOG_TAG, "audioFormat2 最大帧大小： "+audioFormat2.getValueTypeForKey(MediaFormat.KEY_MAX_INPUT_SIZE));
+            Log.i(LOG_TAG, "audioFormat2 最大帧大小： " + audioFormat2.getValueTypeForKey(MediaFormat.KEY_MAX_INPUT_SIZE));
         }
         //启动解码
         audioDecode2.start();
@@ -422,7 +477,11 @@ public class MixingThread extends Thread {
     }
 
     private void getTrack2() throws IOException {
-        audioExtractor2.setDataSource(inputAudio2);
+//        audioExtractor2.setDataSource(inputAudio2);
+        File videoFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "mixer.aac");
+        String videoPath = videoFile.getAbsolutePath();
+        audioExtractor2.setDataSource(videoPath);
+
         int count = audioExtractor2.getTrackCount();
         for (int i = 0; i < count; i++) {
             audioFormat2 = audioExtractor2.getTrackFormat(i);

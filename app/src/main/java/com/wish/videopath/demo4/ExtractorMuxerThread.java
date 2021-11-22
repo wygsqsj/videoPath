@@ -52,7 +52,7 @@ public class ExtractorMuxerThread extends Thread {
             outputAudioFile.createNewFile();
             //读取MP4
             videoExtractor = new MediaExtractor();
-            videoExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.demo4));
+            videoExtractor.setDataSource(context.getResources().openRawResourceFd(R.raw.test4));
 
             //获取通道
             int videoIndex = -1;
