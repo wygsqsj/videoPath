@@ -54,7 +54,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="2dp"
         android:onClick="startUp6"
-        android:text="codec h264"
+        android:text="Camera2"
         app:layout_constraintEnd_toStartOf="@+id/button7"
         app:layout_constraintStart_toEndOf="@+id/button5"
         app:layout_constraintTop_toTopOf="@+id/button5" />
