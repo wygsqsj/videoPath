@@ -54,7 +54,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="2dp"
         android:onClick="startUp6"
-        android:text="Camera2"
+        android:text="h264"
         app:layout_constraintEnd_toStartOf="@+id/button7"
         app:layout_constraintStart_toEndOf="@+id/button5"
         app:layout_constraintTop_toTopOf="@+id/button5" />
@@ -64,7 +64,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:onClick="startUp7"
-        android:text="codec AAC"
+        android:text="Camera2"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/button6"
         app:layout_constraintTop_toTopOf="@+id/button5" />

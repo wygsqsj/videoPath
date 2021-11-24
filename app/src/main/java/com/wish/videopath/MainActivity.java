@@ -14,6 +14,7 @@ import com.wish.videopath.demo3.Demo3Activity;
 import com.wish.videopath.demo4.Demo4Activity;
 import com.wish.videopath.demo5.Demo5Activity;
 import com.wish.videopath.demo6.Demo6Activity;
+import com.wish.videopath.demo7.Demo7Activity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -62,9 +63,9 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    //生成mp4文件
+    //Camera2使用
     public void startUp7(View view) {
-        Intent intent = new Intent(this, Demo5Activity.class);
+        Intent intent = new Intent(this, Demo7Activity.class);
         startActivity(intent);
     }
 }
