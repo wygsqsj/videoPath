@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
+import android.graphics.Point;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -31,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -54,7 +56,15 @@ public class Camera2Helper {
     private CaptureRequest.Builder mCRBuilder;
     private Handler mCameraHandler;
     private CameraCaptureSession mCameraSesstion;
-
+    private CameraYUVReadListener readListener;
+    Point maxPreviewSize = new Point(1920, 1080);
+    Point minPreviewSize = new Point(1280, 720);
+    Point previewViewSize;
+    private Size mPreviewSize;
+    private byte[] y;
+    private byte[] u;
+    private byte[] v;
+    private ReentrantLock lock = new ReentrantLock();
 
     public Camera2Helper(Context context, TextureView textureView) {
         this.context = context;
@@ -106,22 +116,16 @@ public class Camera2Helper {
         //获取预览尺寸
         Size[] previewSizes = map.getOutputSizes(SurfaceTexture.class);
         //获取最佳尺寸
-        Size bestSize = getBestSize(textureView.getWidth(), textureView.getHeight(), previewSizes);
-        /**
-         * 配置预览属性
-         * 与 Cmaera1 不同的是，Camera2 是把尺寸信息给到 Surface (SurfaceView 或者 ImageReader)，
-         * Camera2 会根据 Surface 配置的大小，输出对应尺寸的画面;
-         * 注意摄像头的 width > height ，而我们使用竖屏，所以宽高要变化一下
-         */
-        textureView.getSurfaceTexture().setDefaultBufferSize(bestSize.getHeight(), bestSize.getWidth());
-        Log.i(LOG_TAG, "当前设置的size尺寸,width: " + textureView.getWidth() + " height:" + textureView.getHeight());
+        mPreviewSize = getBestSize(previewSizes);
+        Log.i(LOG_TAG, "获取最佳尺寸,width: " + mPreviewSize.getWidth() + " height:" + mPreviewSize.getHeight());
+
 
         /**
          * 摄像头数据通道
          * 直接返回YUV420数据，摄像头采集的还是nv21，底层帮我们转换成NV12
          * 最后一个参数代表输出几路数据，比如我预览使用一路，直播使用一路，就让底层输出2路数据
          */
-        mImageReader = ImageReader.newInstance(textureView.getWidth(), textureView.getHeight(), ImageFormat.YUV_420_888, 2);
+        mImageReader = ImageReader.newInstance(mPreviewSize.getWidth(), mPreviewSize.getHeight(), ImageFormat.YUV_420_888, 2);
 
         //监听数据何时可用,第二个参数是个Handler,用于回调给当前的线程
         HandlerThread cameraThread = new HandlerThread("camera");//构建一个子线程，并使用子线程的handler
@@ -137,10 +141,31 @@ public class Camera2Helper {
             @Override
             public void onImageAvailable(ImageReader reader) {
                 //回调摄像头返回给我们的数据
-                Log.i(LOG_TAG, "摄像头数据回调 onImageAvailable");
                 //当前yuv数据封装成的Image
-                Image image = reader.acquireLatestImage();
-
+                Image image = reader.acquireNextImage();
+                Log.i(LOG_TAG, "image w h" + image.getWidth() + " " + image.getHeight());
+                // Y:U:V == 4:2:2
+                if (readListener != null && image.getFormat() == ImageFormat.YUV_420_888) {
+                    Image.Plane[] planes = image.getPlanes();
+                    // 加锁确保y、u、v来源于同一个Image
+                    lock.lock();
+                    // 重复使用同一批byte数组，减少gc频率
+                    if (y == null) {
+                        y = new byte[planes[0].getBuffer().limit() - planes[0].getBuffer().position()];
+                        u = new byte[planes[1].getBuffer().limit() - planes[1].getBuffer().position()];
+                        v = new byte[planes[2].getBuffer().limit() - planes[2].getBuffer().position()];
+                        Log.i(LOG_TAG, "y.length" + y.length);
+                        Log.i(LOG_TAG, "u.length" + u.length);
+                        Log.i(LOG_TAG, "v.length" + v.length);
+                    }
+                    if (image.getPlanes()[0].getBuffer().remaining() == y.length) {
+                        planes[0].getBuffer().get(y);
+                        planes[1].getBuffer().get(u);
+                        planes[2].getBuffer().get(v);
+                        readListener.onPreview(y, u, v, mPreviewSize, planes[0].getRowStride());
+                    }
+                    lock.unlock();
+                }
                 //关闭当前的数据才能接受到新数据
                 image.close();
 
@@ -189,6 +214,15 @@ public class Camera2Helper {
     private void createCameraSession() throws CameraAccessException {
         //构建Surface，将摄像头数据输入到我们TextureView中
         SurfaceTexture texture = textureView.getSurfaceTexture();
+        /**
+         * 配置预览属性
+         * 与 Cmaera1 不同的是，Camera2 是把尺寸信息给到 Surface (SurfaceView 或者 ImageReader)，
+         * Camera2 会根据 Surface 配置的大小，输出对应尺寸的画面;
+         * 注意摄像头的 width > height ，而我们使用竖屏，所以宽高要变化一下
+         */
+        texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+        Log.i(LOG_TAG, "当前设置的size尺寸,width: " + textureView.getWidth() + " height:" + textureView.getHeight());
+
         Surface surface = new Surface(texture);
 
         //开启请求
@@ -234,55 +268,65 @@ public class Camera2Helper {
      * 根据当前texture宽高从摄像头支持的分辨率中获取最合适的分辨率
      */
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    private Size getBestSize(int width, int height, Size[] previewSizes) {
-        //降序排序
-        List<Size> outputSizes = Arrays.asList(previewSizes);
-        Collections.sort(outputSizes, new Comparator<Size>() {
-            @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private Size getBestSize(Size[] previewSizes) {
+        List<Size> sizes = Arrays.asList(previewSizes);
+        Size defaultSize = sizes.get(0);
+        Size[] tempSizes = sizes.toArray(new Size[0]);
+        Arrays.sort(tempSizes, new Comparator<Size>() {
             @Override
             public int compare(Size o1, Size o2) {
-                return o1.getWidth() * o1.getHeight() - o2.getWidth() * o2.getHeight();
+                if (o1.getWidth() > o2.getWidth()) {
+                    return -1;
+                } else if (o1.getWidth() == o2.getWidth()) {
+                    return o1.getHeight() > o2.getHeight() ? -1 : 1;
+                } else {
+                    return 1;
+                }
             }
         });
-        Collections.reverse(outputSizes);
-
-        Size previewSize = outputSizes.get(0);
-
-        List<Size> sizes = new ArrayList<>();
-        //计算预览窗口高宽比，高宽比，高宽比
-        float ratio = ((float) height / width);
-        //首先选取宽高比与预览窗口高宽比一致且最大的输出尺寸
-        for (int i = 0; i < outputSizes.size(); i++) {
-            if (((float) outputSizes.get(i).getWidth()) / outputSizes.get(i).getHeight() == ratio) {
-                sizes.add(outputSizes.get(i));
+        sizes = new ArrayList<>(Arrays.asList(tempSizes));
+        for (int i = sizes.size() - 1; i >= 0; i--) {
+            if (maxPreviewSize != null) {
+                if (sizes.get(i).getWidth() > maxPreviewSize.x || sizes.get(i).getHeight() > maxPreviewSize.y) {
+                    sizes.remove(i);
+                    continue;
+                }
+            }
+            if (minPreviewSize != null) {
+                if (sizes.get(i).getWidth() < minPreviewSize.x || sizes.get(i).getHeight() < minPreviewSize.y) {
+                    sizes.remove(i);
+                }
             }
         }
-        if (sizes.size() > 0) {
-            return sizes.get(0);
+        if (sizes.size() == 0) {
+            String msg = "can not find suitable previewSize, now using default";
+            return defaultSize;
         }
-        //如果不存在宽高比与预览窗口高宽比一致的输出尺寸，则选择与其宽高比最接近的输出尺寸
-        sizes.clear();
-     /*   float detRatioMin = Float.MAX_VALUE;
-        for (int i = 0; i < outputSizes.size(); i++) {
-            Size size = outputSizes.get(i);
-            float curRatio = ((float) size.getWidth()) / size.getHeight();
-            if (Math.abs(curRatio - ratio) < detRatioMin) {
-                detRatioMin = curRatio;
-                previewSize = size;
-            }
-        }*/
+        Size bestSize = sizes.get(0);
+        float previewViewRatio;
+        if (previewViewSize != null) {
+            previewViewRatio = (float) previewViewSize.x / (float) previewViewSize.y;
+        } else {
+            previewViewRatio = (float) bestSize.getWidth() / (float) bestSize.getHeight();
+        }
 
-        //如果宽高比最接近的输出尺寸太小，则选择与预览窗口面积最接近的输出尺寸
-        long area = width * height;
-        long detAreaMin = Long.MAX_VALUE;
-        for (int i = 0; i < outputSizes.size(); i++) {
-            Size size = outputSizes.get(i);
-            long curArea = size.getWidth() * size.getHeight();
-            if (Math.abs(curArea - area) < detAreaMin) {
-                detAreaMin = curArea;
-                previewSize = size;
+        if (previewViewRatio > 1) {
+            previewViewRatio = 1 / previewViewRatio;
+        }
+
+        for (Size s : sizes) {
+            if (Math.abs((s.getHeight() / (float) s.getWidth()) - previewViewRatio) < Math.abs(bestSize.getHeight() / (float) bestSize.getWidth() - previewViewRatio)) {
+                bestSize = s;
             }
         }
-        return previewSize;
+        return bestSize;
+    }
+
+    public void setOnCameraDataPreviewListener(CameraYUVReadListener readListener) {
+        this.readListener = readListener;
+    }
+
+    public interface CameraYUVReadListener {
+        public void onPreview(byte[] y, byte[] u, byte[] v, Size width, int stride);
     }
 }
