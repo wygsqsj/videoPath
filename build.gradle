@@ -2,6 +2,15 @@
 buildscript {
     ext.kotlin_version = "1.5.21"
     repositories {
+        maven { url "http://mvn.gt.igexin.com/nexus/content/repositories/releases/" }
+        maven { url 'http://maven.aliyun.com/nexus/content/groups/public/' }
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/jcenter' }
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/google' }
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/gradle-plugin' }
+        maven { url 'https://dl.bintray.com/umsdk/release' }
+        maven { url 'https://jitpack.io' }
+        maven { url 'http://git.baijiashilian.com/open-android/maven/raw/master/' }
+        maven { url "http://maven.aliyun.com/nexus/content/repositories/releases" }
         google()
         jcenter()
     }
@@ -16,6 +25,16 @@ buildscript {
 
 allprojects {
     repositories {
+        maven { url "http://mvn.gt.igexin.com/nexus/content/repositories/releases/" }
+        maven { url 'http://maven.aliyun.com/nexus/content/groups/public/' }
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/jcenter' }
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/google' }
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/gradle-plugin' }
+        maven { url 'https://dl.bintray.com/umsdk/release' }
+        maven { url 'https://jitpack.io' }
+        maven { url 'http://git.baijiashilian.com/open-android/maven/raw/master/' }
+        maven { url "http://maven.aliyun.com/nexus/content/repositories/releases" }
+        maven { url 'https://gitlab.com/xiaomi-passport/maven-repository/raw/master/releases' }
         google()
         jcenter()
     }

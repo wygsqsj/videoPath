@@ -3,14 +3,11 @@ package com.wish.videopath.demo6;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.ImageFormat;
-import android.graphics.Rect;
-import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
@@ -20,17 +17,14 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 
+import com.wish.videopath.R;
+
+import java.util.concurrent.LinkedBlockingQueue;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-
-import com.wish.videopath.R;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.wish.videopath.MainActivity.LOG_TAG;
 

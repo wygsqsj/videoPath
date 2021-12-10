@@ -16,7 +16,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.VideoPath">
-        <activity android:name=".demo7.Demo7Activity"></activity>
+        <activity android:name=".demo7.Demo7Activity"/>
         <activity android:name=".demo6.Demo6Activity" />
         <activity android:name=".demo5.Demo5Activity" />
         <activity android:name=".demo3.Demo3Activity" />
