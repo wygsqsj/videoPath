@@ -8,13 +8,13 @@ import android.util.Size;
 import android.view.TextureView;
 import android.view.View;
 
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.wish.videopath.R;
 import com.wish.videopath.util.ImageUtil;
 
 import java.util.concurrent.LinkedBlockingQueue;
-
-import androidx.annotation.RequiresApi;
-import androidx.appcompat.app.AppCompatActivity;
 
 import static com.wish.videopath.MainActivity.LOG_TAG;
 
@@ -67,7 +67,7 @@ public class Demo7Activity extends AppCompatActivity implements TextureView.Surf
     private byte[] nv21;
     private byte[] nv21_rotated;
     private byte[] nv12;
-    private volatile LinkedBlockingQueue YUVQueue = new LinkedBlockingQueue(16);
+    private volatile LinkedBlockingQueue YUVQueue = new LinkedBlockingQueue();
     private H264EncodeThread encodeMuxerThread;
 
     //Camera2数据回调,先转换成NV21,再转换成NV12

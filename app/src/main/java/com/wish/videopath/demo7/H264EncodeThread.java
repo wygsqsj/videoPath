@@ -161,7 +161,7 @@ public class H264EncodeThread extends Thread {
                         outputBuffer.get(outData);
                         //当前是初始化编解码器数据,不是媒体数据，sps、pps等初始化数据
                         if (encodeBufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG) {
-                            Log.i(LOG_TAG, "配置信息编码完成");
+                            Log.i(LOG_TAG, "配置信息编码完成 "+outData[4]);
                             configByte = new byte[encodeBufferInfo.size];
                             configByte = outData;
                         } else if (encodeBufferInfo.flags == BUFFER_FLAG_KEY_FRAME) {//当前的数据中包含关键帧数据
