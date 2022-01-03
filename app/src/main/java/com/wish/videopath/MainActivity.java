@@ -15,6 +15,7 @@ import com.wish.videopath.demo4.Demo4Activity;
 import com.wish.videopath.demo5.Demo5Activity;
 import com.wish.videopath.demo6.Demo6Activity;
 import com.wish.videopath.demo7.Demo7Activity;
+import com.wish.videopath.demo8.Demo8Activity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -66,6 +67,12 @@ public class MainActivity extends AppCompatActivity {
     //Camera2使用
     public void startUp7(View view) {
         Intent intent = new Intent(this, Demo7Activity.class);
+        startActivity(intent);
+    }
+
+    //rtmp推流
+    public void startUp8(View view) {
+        Intent intent = new Intent(this, Demo8Activity.class);
         startActivity(intent);
     }
 }
