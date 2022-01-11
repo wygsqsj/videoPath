@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.wish.videopath">
 
+    <!--启用openGL-->
+    <uses-feature
+        android:glEsVersion="0x00020000"
+        android:required="true" />
+
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -16,6 +21,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.VideoPath">
+        <activity android:name=".demo9.Demo9Activity" />
         <activity android:name=".demo8.Demo8Activity" />
         <activity android:name=".demo8.mediacodec.MediaCodecActivity" />
         <activity android:name=".demo8.x264.X264Activity" />

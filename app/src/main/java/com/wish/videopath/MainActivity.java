@@ -16,6 +16,7 @@ import com.wish.videopath.demo5.Demo5Activity;
 import com.wish.videopath.demo6.Demo6Activity;
 import com.wish.videopath.demo7.Demo7Activity;
 import com.wish.videopath.demo8.Demo8Activity;
+import com.wish.videopath.demo9.Demo9Activity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -73,6 +74,12 @@ public class MainActivity extends AppCompatActivity {
     //rtmp推流
     public void startUp8(View view) {
         Intent intent = new Intent(this, Demo8Activity.class);
+        startActivity(intent);
+    }
+
+    //openGL
+    public void startUp9(View view) {
+        Intent intent = new Intent(this, Demo9Activity.class);
         startActivity(intent);
     }
 }

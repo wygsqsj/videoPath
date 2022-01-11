@@ -7,9 +7,9 @@
     tools:context=".MainActivity">
 
     <!--    cameraX最低版本21，使用更改一下-->
-    <!--    <androidx.camera.view.PreviewView-->
-    <!--        android:id="@+id/viewFinder"-->
-    <!--        android:layout_width="match_parent"-->
-    <!--        android:layout_height="match_parent" />-->
+<!--        <androidx.camera.view.PreviewView-->
+    <!--            android:id="@+id/viewFinder"-->
+    <!--            android:layout_width="match_parent"-->
+    <!--            android:layout_height="match_parent" />-->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

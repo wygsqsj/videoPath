@@ -39,25 +39,14 @@ package com.wish.lib;
 public class MyClass {
 
     public static void main(String[] args) {
-
-        System.out.println(power(2.00000, 3));
+        Runtime rn = Runtime.getRuntime();
+        Process p = null;
+        try {
+            p = rn.exec("cmd.exe /c D:/Program Files (x86)/pngquant/pngquant.exe D:/Program Files (x86)/pngquant/bg.png");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    public static double power(double base, int exponent) {
-        if (base == 0 && exponent == 0) {
-            return -1;
-        }
-        double num = 1;
-        //4^3 = 4*4*4 4^-3 = (1/4)*(1/4)*(1/4)
-        if (exponent < 0) {
-            base = (1 / base);
-            exponent = -exponent;
-        }
-        for (int i = 0; i < exponent; i++) {
-            num = num * base;
-        }
 
-        //将小数点去除，根据次方正负右移 或 左移，再将小数点还原
-        return num;
-    }
 }

@@ -34,24 +34,12 @@ class MySurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) 
         focusable = FOCUSABLE
     }
 
-    constructor(context: Context?):this(context,null,-1){
+    constructor(context: Context?) : this(context, null, -1) {
     }
 
-    constructor(context: Context?,attrs: AttributeSet?):this(context,attrs,-1){
+    constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, -1) {
     }
 
-
-    override fun surfaceCreated(holder: SurfaceHolder?) {
-        isDrawing = true;
-        Thread(this).start()
-    }
-
-    override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
-    }
-
-    override fun surfaceDestroyed(holder: SurfaceHolder?) {
-        isDrawing = false
-    }
 
     override fun run() {
         drawing()
@@ -66,10 +54,23 @@ class MySurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) 
         val bitmap = BitmapFactory.decodeResource(resources, R.mipmap.haha)
         //bitmap显示区域
         val rect = RectF(0f, 0f, measuredWidth.toFloat(), measuredHeight.toFloat())
-        mCanvas.drawRect(rect,mPaint)
+        mCanvas.drawRect(rect, mPaint)
         //绘制
         mCanvas.drawBitmap(bitmap, 0f, 0f, mPaint)
         mSurfaceHolder.unlockCanvasAndPost(mCanvas)
+    }
+
+    override fun surfaceCreated(p0: SurfaceHolder) {
+        isDrawing = true;
+        Thread(this).start()
+    }
+
+    override fun surfaceChanged(p0: SurfaceHolder, p1: Int, p2: Int, p3: Int) {
+        TODO("Not yet implemented")
+    }
+
+    override fun surfaceDestroyed(p0: SurfaceHolder) {
+        isDrawing = false
     }
 
 }
