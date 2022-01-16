@@ -19,7 +19,7 @@ import androidx.core.app.ActivityCompat;
  * rtmp协议推流，实现软应编解码推流到rtmp服务器
  */
 public class Demo8Activity extends AppCompatActivity {
-    public static final String RTMPURL = "rtmp://live-push.bilivideo.com/live-bvc/?streamname=live_253004675_57099388&key=d7bae0426c3adc1eec7c9786d25c99fb&schedule=rtmp&pflag=9";
+    public static final String RTMPURL = "rtmp://live-push.bilivideo.com/live-bvc/?streamname=live_253004675_57099388&key=15d706a0e5f4b185869c62da5145d39e&schedule=rtmp&pflag=1";
     //    private final String RTMPURL = "rtmp://192.168.28.139:1935/live/?room";
 
     private ActivityDemo8Binding binding;
