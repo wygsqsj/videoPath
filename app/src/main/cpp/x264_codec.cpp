@@ -6,6 +6,7 @@
 //导入rtmp
 extern "C" {
 #include "librtmp/rtmp.h"
+#include "libavcodec/avcodec.h"
 }
 
 void *start(void *args);
@@ -49,8 +50,9 @@ Java_com_wish_videopath_demo8_x264_LivePush_native_1init(JNIEnv *env, jobject th
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_wish_videopath_demo8_x264_LivePush_native_1setVideoEncInfo(JNIEnv *env, jobject thiz,
-                                                                jint width, jint height, jint fps,
-                                                                jint bitrate) {
+                                                                    jint width, jint height,
+                                                                    jint fps,
+                                                                    jint bitrate) {
     if (videoChannel) {
         videoChannel->createX264Encode(width, height, fps, bitrate);
     }
@@ -59,7 +61,8 @@ Java_com_wish_videopath_demo8_x264_LivePush_native_1setVideoEncInfo(JNIEnv *env,
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_wish_videopath_demo8_x264_LivePush_native_1start(JNIEnv *env, jobject thiz, jstring rtmpUrl) {
+Java_com_wish_videopath_demo8_x264_LivePush_native_1start(JNIEnv *env, jobject thiz,
+                                                          jstring rtmpUrl) {
     //连接rtmp服务器
     if (isStart) {
         return;
@@ -78,7 +81,7 @@ Java_com_wish_videopath_demo8_x264_LivePush_native_1start(JNIEnv *env, jobject t
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_wish_videopath_demo8_x264_LivePush_native_1pushVideo(JNIEnv *env, jobject thiz,
-                                                          jbyteArray data_) {
+                                                              jbyteArray data_) {
 
     //没有实例化编码或者rtmp没连接成功时退出
     if (!videoChannel || !readyPushing) {
@@ -197,8 +200,8 @@ void releasePackets(RTMPPacket *packet) {
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wish_videopath_demo8_x264_LivePush_native_1initAudioCodec(JNIEnv *env, jobject thiz,
-                                                               jint sample_rate,
-                                                               jint channel_count) {
+                                                                   jint sample_rate,
+                                                                   jint channel_count) {
     audioChannel = new AudioChannel;
     audioChannel->setCallBack(callBack);
     audioChannel->initCodec(sample_rate, channel_count);
@@ -209,7 +212,7 @@ Java_com_wish_videopath_demo8_x264_LivePush_native_1initAudioCodec(JNIEnv *env, 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_wish_videopath_demo8_x264_LivePush_native_1pushAudio(JNIEnv *env, jobject thiz,
-                                                          jbyteArray buffer) {
+                                                              jbyteArray buffer) {
     //没有实例化编码或者rtmp没连接成功时退出
     if (!audioChannel || !readyPushing) {
         return;

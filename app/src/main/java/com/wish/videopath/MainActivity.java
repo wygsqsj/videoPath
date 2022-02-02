@@ -9,6 +9,7 @@ import android.view.View;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import com.wish.videopath.demo10.FFmpegActivity;
 import com.wish.videopath.demo2.Demo2Activity;
 import com.wish.videopath.demo3.Demo3Activity;
 import com.wish.videopath.demo4.Demo4Activity;
@@ -80,6 +81,12 @@ public class MainActivity extends AppCompatActivity {
     //openGL
     public void startUp9(View view) {
         Intent intent = new Intent(this, Demo9Activity.class);
+        startActivity(intent);
+    }
+
+    //ffmpeg
+    public void startUp10(View view) {
+        Intent intent = new Intent(this, FFmpegActivity.class);
         startActivity(intent);
     }
 }

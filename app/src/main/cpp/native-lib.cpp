@@ -44,8 +44,8 @@ RTMPPacket *createVideoPacket(int8_t *buf, int len, long tms, Live *live);
 extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_wish_videopath_demo8_mediacodec_ScreenLive_sendData(JNIEnv *env, jobject thiz,
-                                                         jbyteArray data_, jint len,
-                                                         jlong tms, jint type) {
+                                                             jbyteArray data_, jint len,
+                                                             jlong tms, jint type) {
     // 确保不会取出空的 RTMP 数据包
     if (!data_) {
         return 0;
@@ -259,7 +259,8 @@ void saveSPSPPS(int8_t *buf, int len, Live *live) {
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_wish_videopath_demo8_mediacodec_ScreenLive_connect(JNIEnv *env, jobject thiz, jstring url_) {
+Java_com_wish_videopath_demo8_mediacodec_ScreenLive_connect(JNIEnv *env, jobject thiz,
+                                                            jstring url_) {
     //链接rtmp服务器
     int ret = 0;
     const char *url = env->GetStringUTFChars(url_, 0);

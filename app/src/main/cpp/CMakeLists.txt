@@ -10,7 +10,9 @@ message(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/include/x264)
 #导入faac头文件
 include_directories(${CMAKE_SOURCE_DIR}/include/faac)
-#导入x264静态库 、faac静态库
+#导入ffmpeg头文件
+include_directories(${CMAKE_SOURCE_DIR}/include/ffmpeg)
+#导入x264静态库 、faac静态库、ffmpeg
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${CMAKE_SOURCE_DIR}/lib/${ANDROID_ABI}")
 
 #导入当前的cpp
@@ -20,7 +22,6 @@ add_library(
         native-lib
         SHARED
         ${x264_soures})
-
 
 find_library(
         log-lib
@@ -32,4 +33,10 @@ target_link_libraries(
         rtmp
         x264
         faac
+        avcodec
+        avfilter
+        avformat
+        avutil
+        swscale
+        swresample
         ${log-lib})
