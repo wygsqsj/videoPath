@@ -39,4 +39,5 @@ target_link_libraries(
         avutil
         swscale
         swresample
+        android
         ${log-lib})
