@@ -97,4 +97,14 @@
         android:text="ffmpeg"
         app:layout_constraintStart_toEndOf="@+id/button9"
         app:layout_constraintTop_toBottomOf="@+id/button5" />
+
+    <Button
+        android:id="@+id/button11"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:onClick="startUp11"
+        android:text="opensl es"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/button8" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

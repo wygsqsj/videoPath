@@ -21,7 +21,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.VideoPath">
-        <activity android:name=".demo10.FFmpegActivity"></activity>
+        <activity android:name=".demo11.MusicActivity"/>
+        <activity android:name=".demo10.FFmpegActivity" />
         <activity android:name=".demo9.Demo9Activity" />
         <activity android:name=".demo8.Demo8Activity" />
         <activity android:name=".demo8.mediacodec.MediaCodecActivity" />

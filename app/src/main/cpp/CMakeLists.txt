@@ -17,11 +17,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${CMAKE_SOURCE_DIR}/lib/${ANDROID_ABI}
 
 #导入当前的cpp
 file(GLOB x264_soures *.cpp)
+file(GLOB opse music/*.cpp)
 
 add_library(
         native-lib
         SHARED
-        ${x264_soures})
+        ${x264_soures}
+        ${opse})
 
 find_library(
         log-lib

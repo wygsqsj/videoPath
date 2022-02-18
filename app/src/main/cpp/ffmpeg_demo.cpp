@@ -35,6 +35,8 @@ Java_com_wish_videopath_demo10_FFmpegActivity_play(JNIEnv *env, jobject thiz, js
     const char *url = env->GetStringUTFChars(url_, 0);
     //注册组件
     avcodec_register_all();
+    //初始化网络流,即可以播放网络地址得音视频
+    avformat_network_init();
     //初始化上下文
     avFormatContext = avformat_alloc_context();
     //打开视频文件或者流
@@ -230,11 +232,14 @@ Java_com_wish_videopath_demo10_FFmpegActivity_play(JNIEnv *env, jobject thiz, js
                             (const uint8_t **) (audioAVFrame->data), audioAVFrame->nb_samples);
 
                 //将转换后的数据放到jbyte中传给java
-                jbyteArray audioData = env->NewByteArray(size);
-                env->SetByteArrayRegion(audioData, 0, size,
-                                        reinterpret_cast<const jbyte *>(audioOutBuffer));
-                //回调传给java层
-                env->CallVoidMethod(thiz, playAudio, audioData, size);
+                if (size > 0) {
+                    jbyteArray audioData = env->NewByteArray(size);
+                    env->SetByteArrayRegion(audioData, 0, size,
+                                            reinterpret_cast<const jbyte *>(audioOutBuffer));
+                    //回调传给java层
+                    env->CallVoidMethod(thiz, playAudio, audioData, size);
+                }
+
             }
         } else {
             return -1;

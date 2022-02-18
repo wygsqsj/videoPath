@@ -3,7 +3,6 @@ package com.wish.videopath.demo10;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.ContentResolver;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -14,10 +13,9 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import com.wish.videopath.R;
+import com.wish.videopath.util.FileUtil;
 
 import java.io.File;
 
@@ -64,7 +62,8 @@ public class FFmpegActivity extends AppCompatActivity implements SurfaceHolder.C
 
     //点击播放
     public void play(View view) {
-        String url = new File(this.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "newMixer.mp4").getAbsolutePath();
+        String url = FileUtil.copyAssFileToSD(this, "demo4.mp4");
+//        String url = "http://vfx.mtime.cn/Video/2019/03/09/mp4/190309153658147087.mp4";
         play(url, surface);
     }
 
@@ -94,5 +93,6 @@ public class FFmpegActivity extends AppCompatActivity implements SurfaceHolder.C
     }
 
     public native int play(String url, Surface surface);
+
 
 }

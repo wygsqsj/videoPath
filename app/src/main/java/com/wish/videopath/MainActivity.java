@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import com.wish.videopath.demo10.FFmpegActivity;
+import com.wish.videopath.demo11.MusicActivity;
 import com.wish.videopath.demo2.Demo2Activity;
 import com.wish.videopath.demo3.Demo3Activity;
 import com.wish.videopath.demo4.Demo4Activity;
@@ -87,6 +88,12 @@ public class MainActivity extends AppCompatActivity {
     //ffmpeg
     public void startUp10(View view) {
         Intent intent = new Intent(this, FFmpegActivity.class);
+        startActivity(intent);
+    }
+
+    //ffmpeg解码音乐使用opensl es播放
+    public void startUp11(View view) {
+        Intent intent = new Intent(this, MusicActivity.class);
         startActivity(intent);
     }
 }
