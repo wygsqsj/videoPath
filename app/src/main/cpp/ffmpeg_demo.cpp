@@ -239,7 +239,6 @@ Java_com_wish_videopath_demo10_FFmpegActivity_play(JNIEnv *env, jobject thiz, js
                     //回调传给java层
                     env->CallVoidMethod(thiz, playAudio, audioData, size);
                 }
-
             }
         } else {
             return -1;

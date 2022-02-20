@@ -5,7 +5,6 @@
 #define LOG_TAG    "音视频"
 #define LOGI(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-
 //导入rtmp
 extern "C" {
 #include "librtmp/rtmp.h"
