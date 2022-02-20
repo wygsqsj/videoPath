@@ -64,25 +64,22 @@ void MyFFmpeg::decodeAudioThread() {
         audio->streamIndex = audioIndex;
     }
 
-    //解析音频，获取解码器上下文
-    AVCodecContext *audioCodecContext = avFormatContext->streams[audioIndex]->codec;
+    //将解码上下文传递给播放器
+    audio->avCodecContext = avFormatContext->streams[audioIndex]->codec;
 
     //实例化音频解码器
-    AVCodec *audioCodec = avcodec_find_decoder(audioCodecContext->codec_id);
+    AVCodec *audioCodec = avcodec_find_decoder(audio->avCodecContext->codec_id);
     if (!audioCodec) {
         LOGI("实例化音频解码器失败");
         return;
     }
-
-    //将解码上下文传递给播放器
-    audio->avCodecContext = avcodec_alloc_context3(audioCodec);
 
     if (avcodec_parameters_to_context(audio->avCodecContext, audio->codecpar)) {//将解码器中信息复制到上下文当中
         LOGI("avcodec_parameters_to_context ERROR");
         return;
     }
 
-    if (avcodec_open2(audioCodecContext, audioCodec, NULL) < 0) {
+    if (avcodec_open2(audio->avCodecContext, audioCodec, NULL) < 0) {
         LOGI("没有打开音频解码器");
         return;
     }

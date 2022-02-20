@@ -1,14 +1,13 @@
 //
 //  opensl es音乐播放
 //
-
 #include "OpenslPlay.h"
 
 OpenslPlay::OpenslPlay(AudioPlayStatus *playStatus, AVCodecParameters *pParameters)
         : playStatus(playStatus), codecpar(pParameters) {
     queue = new OpenslQueue(playStatus);
     //这个里面放的是音频重采样的数据，即每秒播放的pcm数据大小
-    buffer = static_cast<uint8_t *>(av_malloc(44100 * 2 * 2));
+    buffer = static_cast<uint8_t *>(av_malloc(codecpar->sample_rate * 2 * 2));
 }
 
 OpenslPlay::~OpenslPlay() = default;
@@ -31,15 +30,17 @@ int OpenslPlay::resampleAudio() {
     while (playStatus != NULL && !playStatus->exit) {
         avPacket = av_packet_alloc();
         //队列中没有数据
-        if (queue->getAVPacket(avPacket) != 1) {
+        if (queue->getAVPacket(avPacket) != 0) {
+            LOGI("队列中没有数据");
             av_packet_free(&avPacket);
             av_free(avPacket);
             avPacket = NULL;
             continue;
         }
+
         //交给cpu进行解码
         ret = avcodec_send_packet(avCodecContext, avPacket);
-        if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+        if (ret != NULL) {
             LOGI("解码音频出错");
             av_packet_free(&avPacket);
             av_free(avPacket);
@@ -71,6 +72,8 @@ int OpenslPlay::resampleAudio() {
                     0,//日志，可直接传0
                     NULL
             );
+
+            LOGI("设置转换器上下文完成");
 
             //转换器上下文初始化失败
             if (!swr_context || swr_init(swr_context)) {
@@ -134,32 +137,72 @@ void pcmBufferCallBack(SLAndroidSimpleBufferQueueItf bufferQueueItf, void *data)
     LOGI("pcmBufferCallBack 执行");
     OpenslPlay *play = (OpenslPlay *) data;
     if (play != NULL) {
-        int buffesize = play->resampleAudio();
+        int bufferSize = play->resampleAudio();
+
+        LOGI("OpenslPlay 获取");
+
 
         //将数据添加到opensl的队列中去
-        (*play->pcmBufferQueue)->Enqueue(play->pcmBufferQueue, (char *) play->buffer, buffesize);
-
+        (*play->pcmBufferQueue)->Enqueue(play->pcmBufferQueue,
+                                         (char *) play->buffer,
+                                         bufferSize);
+    } else {
+        LOGI("OpenslPlay 获取失败");
     }
 }
 
 //初始化openSl
 void OpenslPlay::initOpenSL() {
     struct timeval t_start, t_end;
+    gettimeofday(&t_start, NULL);
+    LOGI("Start time: %ld us", t_start.tv_usec);
+    /***********  1 创建引擎 获取SLEngineItf***************/
     //创建引擎
-    SLresult result = slCreateEngine(&engineObject, 0, 0, 0, 0, 0);
+    SLresult result;
+    result = slCreateEngine(&engineObject, 0, 0, 0, 0, 0);
+    if (result != SL_RESULT_SUCCESS) {
+        LOGI("创建引擎失败 slCreateEngine Start time: %ld us", t_start.tv_usec);
+        return;
+    }
     //初始化引擎内部变量，实现Realize接口对象
     result = (*engineObject)->Realize(engineObject, SL_BOOLEAN_FALSE);
+    if (result != SL_RESULT_SUCCESS) {
+        LOGI("创建引擎失败 Realize Start time: %ld us", t_start.tv_usec);
+        return;
+    }
     //初始化engineEngine引擎接口，通过接口来操作引擎
     result = (*engineObject)->GetInterface(engineObject, SL_IID_ENGINE, &engineEngine);
+    if (result != SL_RESULT_SUCCESS) {
+        LOGI("创建引擎失败 GetInterface Start time: %ld us", t_start.tv_usec);
+        return;
+    }
 
+    if (engineEngine) {
+        LOGI("创建引擎 get SLEngineItf success");
+    } else {
+        LOGI("创建引擎 get SLEngineItf failed");
+    }
+
+    /***********  2 创建混音器 ***************/
     //创建混音器，给哪个喇叭分配音频数据，通过接口创建
     const SLInterfaceID mids[1] = {SL_IID_ENVIRONMENTALREVERB};//环境混响音效
     const SLboolean mreq[1] = {SL_BOOLEAN_FALSE};//是否强制实现回响音效
     result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 1, mids, mreq);
+    if (result != SL_RESULT_SUCCESS) {
+        LOGI("创建引擎 CreateOutputMix failed");
+        return;
+    } else {
+        LOGI("创建引擎 CreateOutputMix success");
+    }
 
     //依旧是通过混音器接口来操作混音器
-    (void) result;
     result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
+    if (result != SL_RESULT_SUCCESS) {
+        LOGI("创建引擎 mixer init failed");
+    } else {
+        LOGI("创建引擎 mixer init success");
+    }
+
     result = (*outputMixObject)->GetInterface(outputMixObject, SL_IID_ENVIRONMENTALREVERB,
                                               &outputMixEnvironmentalReverb);
 
@@ -170,13 +213,16 @@ void OpenslPlay::initOpenSL() {
         (void) result;
     }
 
+    /***********  3 配置音频信息 ***************/
     //播放解码后的数据
     SLDataLocator_OutputMix outputMix = {SL_DATALOCATOR_OUTPUTMIX, outputMixObject};
     SLDataSink audioSnk = {&outputMix, 0};
 
-    //配置PCM格式信息
+    //缓冲队列
     SLDataLocator_AndroidSimpleBufferQueue android_queue = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE,
                                                             2};
+
+    LOGI("创建引擎 当前sample_rate  %d", codecpar->sample_rate);
     //音频格式
     SLDataFormat_PCM pcm = {
             SL_DATAFORMAT_PCM,//PCM格式数据
@@ -184,33 +230,46 @@ void OpenslPlay::initOpenSL() {
             static_cast<SLuint32>(getCurrentSampleRateForOpensles(codecpar->sample_rate)),//44100频率
             SL_PCMSAMPLEFORMAT_FIXED_16,//16位
             SL_PCMSAMPLEFORMAT_FIXED_16,//16位
-            SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT,//立体声（前左前右）
+            SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT, //立体声（前左前右）
             SL_BYTEORDER_LITTLEENDIAN//结束位
     };
 
     SLDataSource slDataSource = {&android_queue, &pcm};
 
+    /************* 4 创建播放器 ****************/
     //创建播放器
-    const SLInterfaceID ids[1] = {SL_IID_BUFFERQUEUE};
-    const SLboolean req[1] = {SL_BOOLEAN_TRUE};
-    (*engineEngine)->CreateAudioPlayer(engineEngine, &pcmPlayerObject, &slDataSource, &audioSnk, 1,
-                                       ids, req);
-    //初始化播放器
-    (*pcmPlayerObject)->Realize(pcmPlayerObject, SL_BOOLEAN_FALSE);
+    /* const SLInterfaceID ids[1] = {SL_IID_BUFFERQUEUE};
+     const SLboolean req[1] = {SL_BOOLEAN_TRUE};*/
+    const SLInterfaceID ids[] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME, SL_IID_MUTESOLO};
+    const SLboolean req[] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
 
+    result = (*engineEngine)->CreateAudioPlayer(engineEngine, &pcmPlayerObject, &slDataSource,
+                                                &audioSnk, sizeof(ids) / sizeof(SLInterfaceID),
+                                                ids, req);
+//    (*engineEngine)->CreateAudioPlayer(engineEngine, &pcmPlayerObject, &slDataSource, &audioSnk, 1, ids, req);
     if (result != SL_RESULT_SUCCESS) {
         LOGI("创建opensl播放器失败");
     } else {
         LOGI("创建opensl播放器成功");
     }
 
+    //初始化播放器
+    result = (*pcmPlayerObject)->Realize(pcmPlayerObject, SL_BOOLEAN_FALSE);
+    if (result != SL_RESULT_SUCCESS) {
+        LOGI("创建引擎 audio player init failed");
+    } else {
+        LOGI("创建引擎 audio player init success");
+    }
+
     //获取播放器接口，通过接口控制
     result = (*pcmPlayerObject)->GetInterface(pcmPlayerObject, SL_IID_PLAY, &pcmPlayerPlay);
+
     if (result != SL_RESULT_SUCCESS) {
         LOGI("opensl播放器 get SL_IID_PLAY failed");
     } else {
         LOGI("opensl播放器 get SL_IID_PLAY success");
     }
+
     //获取声道操作接口
     (*pcmPlayerObject)->GetInterface(pcmPlayerObject, SL_IID_MUTESOLO, &pcmMutePlay);
 
@@ -225,7 +284,6 @@ void OpenslPlay::initOpenSL() {
     } else {
         LOGI("opensl播放器 get SL_IID_BUFFERQUEUE success");
     }
-
     /************* 4 创建播放器 ****************/
     //设置回调函数
     (*pcmBufferQueue)->RegisterCallback(pcmBufferQueue, pcmBufferCallBack, this);
@@ -234,11 +292,11 @@ void OpenslPlay::initOpenSL() {
     // 启动播放，不断的回调函数pcmBufferCallBack
     pcmBufferCallBack(pcmBufferQueue, this);
 
-//    gettimeofday(&t_end, NULL);
-//    LOGI("End time: %ld us", t_end.tv_usec);
-//
-//    long cost_time = t_end.tv_usec - t_start.tv_usec;
-//    LOGI("opensled create cost:%ld ms", cost_time / 1000);
+    gettimeofday(&t_end, NULL);
+    LOGI("End time: %ld us", t_end.tv_usec);
+
+    long cost_time = t_end.tv_usec - t_start.tv_usec;
+    LOGI("opensled create cost:%ld ms", cost_time / 1000);
 
 }
 
