@@ -58,6 +58,16 @@ Java_com_wish_videopath_demo11_FFPlay_playAudio(JNIEnv *env, jobject thiz) {
     }
 }
 
+//seekbar拖动跳转到某个位置播放
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_wish_videopath_demo11_FFPlay_seekToSecds(JNIEnv *env, jobject thiz, jint secds) {
+    if (ffmpeg != NULL) {
+        ffmpeg->seekTo(secds);
+    }
+
+}
+
 
 
 //固定写法，用于获取jvm实例

@@ -10,7 +10,8 @@ OpenslPlay::OpenslPlay(AudioPlayStatus *playStatus, AVCodecParameters *pParamete
     buffer = static_cast<uint8_t *>(av_malloc(codecpar->sample_rate * 2 * 2));
 }
 
-OpenslPlay::~OpenslPlay() = default;
+OpenslPlay::~OpenslPlay() {
+};
 
 //c环境运行在子线程
 void *decodePlay(void *data) {

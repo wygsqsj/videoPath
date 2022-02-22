@@ -43,6 +43,8 @@ public:
     //队列大小
     int getQueueSize();
 
+    int clearQueue();
+
 
 };
 

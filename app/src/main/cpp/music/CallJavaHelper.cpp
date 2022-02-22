@@ -43,8 +43,6 @@ void CallJavaHelper::onCallReady(int threadType) {
 }
 
 void CallJavaHelper::onPlayTimeCallBack(int threadType, int curr, int total) {
-
-
     if (threadType == MAIN_THREAD) {
         jniEnv->CallVoidMethod(jobj, jCallTimeMethodId, curr, total);
     } else {

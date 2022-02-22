@@ -46,6 +46,7 @@ public:
 
     pthread_t playThread;
 
+
     AVPacket *avPacket = NULL;
     AVFrame *avFrame = NULL;//解码出来的帧
 

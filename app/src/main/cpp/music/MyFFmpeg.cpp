@@ -8,9 +8,12 @@
 
 MyFFmpeg::MyFFmpeg(AudioPlayStatus *playStatus, CallJavaHelper *callJava, const char *audioUrl) :
         playStatus(playStatus), callJava(callJava), audioUrl(audioUrl) {
+    pthread_mutex_init(&seek_mutex, NULL);
 }
 
-MyFFmpeg::~MyFFmpeg() = default;
+MyFFmpeg::~MyFFmpeg() {
+    pthread_mutex_unlock(&seek_mutex);
+};
 
 //当前运行在子线程,再通过data转移到c++环境下运行
 void *decodeFFmpeg(void *data) {
@@ -110,6 +113,16 @@ void MyFFmpeg::start() {
 
     int count;
     while (playStatus != nullptr && !playStatus->exit) {
+        //当前在seek时
+        if (playStatus->isSeek) {
+            continue;
+        }
+
+        //队列大小大于100不放入新的数据了
+        if (audio->queue->getQueueSize() > 100) {
+            continue;
+        }
+
         AVPacket *avPacket = av_packet_alloc();
         if (av_read_frame(avFormatContext, avPacket) >= 0) {
             //当前是音频轨道
@@ -143,5 +156,35 @@ void MyFFmpeg::start() {
 
     LOGI("已解码完成");
 
+}
+
+//跳转到规定位置播放
+void MyFFmpeg::seekTo(int64_t secds) {
+    if (audioDuration <= 0 || secds < 0 || audio == NULL) {
+        return;
+    }
+    LOGI("当前要seek的位置：%d", secds);
+
+    pthread_mutex_lock(&seek_mutex);
+
+    //清空之前解析得数据
+    playStatus->isSeek = true;
+    audio->queue->clearQueue();
+    audio->clock = 0;
+    audio->last_call_java_time = 0;
+
+    int64_t rel = secds * AV_TIME_BASE;
+    avformat_seek_file(avFormatContext,//上下文
+                       -1,//轨道，-1代表所有轨道都seek
+                       INT64_MIN,
+                       rel,
+                       INT64_MAX,
+                       -1);
+
+//    avcodec_flush_buffers(audio->avCodecContext);
+
+    playStatus->isSeek = false;
+
+    pthread_mutex_unlock(&seek_mutex);
 }
 

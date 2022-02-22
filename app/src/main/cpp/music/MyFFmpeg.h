@@ -29,6 +29,8 @@ public:
     AudioPlayStatus *playStatus = NULL;
     //音乐时长
     int audioDuration = 0;
+    //seek 时加锁
+    pthread_mutex_t seek_mutex;
 
 public:
     MyFFmpeg(AudioPlayStatus *playStatus, CallJavaHelper *callJava, const char *audioUrl);
@@ -40,6 +42,8 @@ public:
     void decodeAudioThread();
 
     void start();
+
+    void seekTo(int64_t secds);
 
 };
 

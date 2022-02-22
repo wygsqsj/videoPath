@@ -10,6 +10,7 @@ class AudioPlayStatus {
 
 public:
     bool exit = false;
+    bool isSeek = false;
 
 public:
 

@@ -61,3 +61,19 @@ int OpenslQueue::getQueueSize() {
     return size;
 }
 
+int OpenslQueue::clearQueue() {
+    pthread_mutex_lock(&mutex);
+    while (queuePacket.size() > 0) {
+        //从队列头部取出
+        AVPacket *packet = queuePacket.front();
+        queuePacket.pop();
+        //释放
+        av_packet_free(&packet);
+        av_free(packet);
+        packet = NULL;
+    }
+    LOGI("清空avpacke队列");
+    pthread_mutex_unlock(&mutex);
+    return 0;
+}
+

@@ -20,6 +20,12 @@ public class FFPlay {
     //native设置给java层的回调
     private PlayPrepareListener listener;
 
+    private PlayerListener playerListener;
+
+    public void setPlayerListener(PlayerListener playerListener) {
+        this.playerListener = playerListener;
+    }
+
     //由native调用
     public void setListener(PlayPrepareListener listener) {
         this.listener = listener;
@@ -33,8 +39,10 @@ public class FFPlay {
         }
     }
 
-    public void onPlayTimeCallBack(int curr,int total) {
-        Log.i(LOG_TAG, "native回调java,返回当前的时间，curr = "+curr+" total = "+total);
+    public void onPlayTimeCallBack(int curr, int total) {
+        if (playerListener != null) {
+            playerListener.onCurrentTime(curr, total);
+        }
     }
 
     public void setAudioUrl(String audioUrl) {
@@ -56,9 +64,16 @@ public class FFPlay {
         new Thread(() -> playAudio()).start();
     }
 
+    //调整转到对应位置进行播放
+    public void seekTo(int position) {
+        seekToSecds(position);
+    }
+
     private native void initAudio(String url);
 
     private native void playAudio();
+
+    private native void seekToSecds(int secds);
 
 
 }
