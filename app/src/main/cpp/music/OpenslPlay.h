@@ -7,6 +7,7 @@
 
 #include "OpenslQueue.h"
 #include "AudioPlayStatus.h"
+#include "CallJavaHelper.h"
 
 
 extern "C" {
@@ -24,6 +25,21 @@ public:
     AVCodecParameters *codecpar = NULL;
     //解码器上下文
     AVCodecContext *avCodecContext = NULL;
+    //音乐时长
+    int audioDuration = 0;
+    //时间单位, 总时间/帧数，用于获取时间戳：帧数*time_base
+    AVRational time_base;
+    //当前从队列中取出的packet对应的的时间戳
+    double cur_time;
+
+    //解码后的数据播放的时间，即真正的播放时间
+    double clock;
+
+    //上次回调给java的时间
+    double last_call_java_time = 0;
+
+    //回调java层,把时间传回java
+    CallJavaHelper *callJava = NULL;
 
     OpenslQueue *queue = NULL;
     AudioPlayStatus *playStatus = NULL;
@@ -63,6 +79,8 @@ public:
     OpenslPlay(AudioPlayStatus *playStatus, AVCodecParameters *pParameters);
 
     virtual ~OpenslPlay();
+
+    void setCallJava(CallJavaHelper *callJava);
 
     void play();//播放
 

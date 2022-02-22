@@ -19,7 +19,7 @@ public:
     JNIEnv *jniEnv = NULL;
     jobject jobj;
 
-    jmethodID jMethodId;
+    jmethodID jMethodId, jCallTimeMethodId;
 
 public:
 
@@ -28,6 +28,8 @@ public:
     virtual ~CallJavaHelper();
 
     void onCallReady(int threadType);
+
+    void onPlayTimeCallBack(int threadType, int curr, int total);
 
 };
 

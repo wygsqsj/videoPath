@@ -73,8 +73,6 @@ int OpenslPlay::resampleAudio() {
                     NULL
             );
 
-            LOGI("设置转换器上下文完成");
-
             //转换器上下文初始化失败
             if (!swr_context || swr_init(swr_context)) {
                 av_packet_free(&avPacket);
@@ -103,6 +101,15 @@ int OpenslPlay::resampleAudio() {
             int out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
             data_size = nb * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
             LOGI("重采样后的数据大小", data_size);
+
+            //计算当前的时间戳,帧数 * 单位
+            cur_time = avFrame->pts * av_q2d(time_base);
+            //保证播放时间的准确
+            if (clock > cur_time) {
+                cur_time = clock;
+            }
+            clock = cur_time;
+
 
             //释放掉当前音频帧的数据
             av_packet_free(&avPacket);
@@ -137,11 +144,19 @@ void pcmBufferCallBack(SLAndroidSimpleBufferQueueItf bufferQueueItf, void *data)
     LOGI("pcmBufferCallBack 执行");
     OpenslPlay *play = (OpenslPlay *) data;
     if (play != NULL) {
+        //从FFMpeg生产的AVPacket队列取出数据，进行解码
         int bufferSize = play->resampleAudio();
 
+        //计算当前的播放时间
+        play->clock += bufferSize / (double) (play->codecpar->sample_rate * 2 * 2);
+
+        //回调给java层，控制频率在1秒内回调一次
+        if (play->clock - play->last_call_java_time > 1) {
+            play->callJava->onPlayTimeCallBack(CHILD_THREAD, play->clock, play->audioDuration);
+            play->last_call_java_time = play->clock;
+        }
+
         LOGI("OpenslPlay 获取");
-
-
         //将数据添加到opensl的队列中去
         (*play->pcmBufferQueue)->Enqueue(play->pcmBufferQueue,
                                          (char *) play->buffer,
@@ -284,7 +299,7 @@ void OpenslPlay::initOpenSL() {
     } else {
         LOGI("opensl播放器 get SL_IID_BUFFERQUEUE success");
     }
-    /************* 4 创建播放器 ****************/
+
     //设置回调函数
     (*pcmBufferQueue)->RegisterCallback(pcmBufferQueue, pcmBufferCallBack, this);
     //设置播放状态
@@ -347,5 +362,9 @@ int OpenslPlay::getCurrentSampleRateForOpensles(int sample_rate) {
             rate = SL_SAMPLINGRATE_44_1;
     }
     return rate;
+}
+
+void OpenslPlay::setCallJava(CallJavaHelper *callJava) {
+    this->callJava = callJava;
 }
 

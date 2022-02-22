@@ -27,7 +27,8 @@ public:
     OpenslPlay *audio = NULL;
     //播放状态
     AudioPlayStatus *playStatus = NULL;
-
+    //音乐时长
+    int audioDuration = 0;
 
 public:
     MyFFmpeg(AudioPlayStatus *playStatus, CallJavaHelper *callJava, const char *audioUrl);

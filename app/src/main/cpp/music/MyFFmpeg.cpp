@@ -61,11 +61,22 @@ void MyFFmpeg::decodeAudioThread() {
     //初始化播放器
     if (audio == NULL) {
         audio = new OpenslPlay(playStatus, avFormatContext->streams[audioIndex]->codecpar);
+        audio->setCallJava(callJava);
         audio->streamIndex = audioIndex;
     }
 
     //将解码上下文传递给播放器
     audio->avCodecContext = avFormatContext->streams[audioIndex]->codec;
+
+    //时间单位
+    audio->time_base = avFormatContext->streams[audioIndex]->time_base;
+
+    //获取当前音乐的总时长
+    audio->audioDuration = avFormatContext->duration / AV_TIME_BASE;
+
+    audioDuration = audio->audioDuration;
+
+
 
     //实例化音频解码器
     AVCodec *audioCodec = avcodec_find_decoder(audio->avCodecContext->codec_id);
@@ -87,7 +98,7 @@ void MyFFmpeg::decodeAudioThread() {
     callJava->onCallReady(CHILD_THREAD);
 }
 
-//开启播放
+//从音频文件中读取数据
 void MyFFmpeg::start() {
 
     if (audio == NULL) {
@@ -113,7 +124,7 @@ void MyFFmpeg::start() {
                 av_free(avPacket);
                 avPacket = NULL;
             }
-        } else {//解码完成
+        } else {//读取完成
             //释放掉申请的avpacke
             av_packet_free(&avPacket);
             av_free(avPacket);

@@ -33,6 +33,10 @@ public class FFPlay {
         }
     }
 
+    public void onPlayTimeCallBack(int curr,int total) {
+        Log.i(LOG_TAG, "native回调java,返回当前的时间，curr = "+curr+" total = "+total);
+    }
+
     public void setAudioUrl(String audioUrl) {
         this.audioUrl = audioUrl;
     }
