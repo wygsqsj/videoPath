@@ -21,8 +21,8 @@ public class MusicActivity extends AppCompatActivity implements PlayerListener {
 
     private Button btnPlay;
     private TextView currentTime, totalTime;
-    private SeekBar audioSeekBar;
-    private int position;
+    private SeekBar audioSeekBar, volumeSeekBar;
+    private int position;//单位秒
     private FFPlay play;
     private int total;
 
@@ -35,6 +35,9 @@ public class MusicActivity extends AppCompatActivity implements PlayerListener {
         currentTime = findViewById(R.id.currentTime);
         totalTime = findViewById(R.id.totalTime);
         audioSeekBar = findViewById(R.id.seekAudio);
+        volumeSeekBar = findViewById(R.id.volumeSeekBar);
+
+        initVoluemSeek();
 
         audioSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -54,6 +57,25 @@ public class MusicActivity extends AppCompatActivity implements PlayerListener {
                 seekTo();
             }
         });
+
+    }
+
+    private void initVoluemSeek() {
+        volumeSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                setVolume(seekBar.getProgress());
+            }
+        });
     }
 
     //拖动seekBar
@@ -67,18 +89,43 @@ public class MusicActivity extends AppCompatActivity implements PlayerListener {
     //播放
     public void playAudio(View view) {
         if ("暂停".equals(btnPlay.getText().toString())) {
-
+            //点击暂停
+            pauseAudio();
+            runOnUiThread(() -> btnPlay.setText("播放"));
         } else {
-            String url = FileUtil.copyAssFileToSD(this, "渡口.mp3");
-            play = new FFPlay();
-            play.setPlayerListener(this);
-            play.setAudioUrl(url);
-            play.initPlay();
-            //设置初始化监听
-            play.setListener(() -> {
+            if (play == null) {
+                startPlay();
+            } else {
+                resumeAudio();
                 runOnUiThread(() -> btnPlay.setText("暂停"));
-                play.startPlay();
-            });
+            }
+        }
+    }
+
+    private void startPlay() {
+        //点击开始播放
+        String url = FileUtil.copyAssFileToSD(this, "渡口.mp3");
+//            String url = "http://mpge.5nd.com/2015/2015-11-26/69708/1.mp3";
+        play = new FFPlay();
+        play.setPlayerListener(this);
+        play.setAudioUrl(url);
+        play.initPlay();
+        //设置初始化监听
+        play.setListener(() -> {
+            runOnUiThread(() -> btnPlay.setText("暂停"));
+            play.startPlay();
+        });
+    }
+
+    private void resumeAudio() {
+        if (play != null) {
+            play.resumeAudio();
+        }
+    }
+
+    private void pauseAudio() {
+        if (play != null) {
+            play.pauseAudio();
         }
     }
 
@@ -148,5 +195,33 @@ public class MusicActivity extends AppCompatActivity implements PlayerListener {
         }
         stringBuilder.append(s);
         return stringBuilder.toString();
+    }
+
+    //立体声
+    public void solidChannel(View view) {
+        if (play != null) {
+            play.centerAudio();
+        }
+    }
+
+    //右声道
+    public void rightChannel(View view) {
+        if (play != null) {
+            play.rightChannelAudio();
+        }
+    }
+
+    //左声道
+    public void leftChannel(View view) {
+        if (play != null) {
+            play.leftChannelAudio();
+        }
+    }
+
+    //左声道
+    public void setVolume(int volume) {
+        if (play != null) {
+            play.setVolume(volume);
+        }
     }
 }

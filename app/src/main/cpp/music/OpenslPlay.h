@@ -53,6 +53,8 @@ public:
     int ret = -1;
     //重采样后的缓冲区
     uint8_t *buffer = NULL;
+    //当前声道  0 左声道 1右声道 2 立体声
+    int channel = 2;
 
     int data_size;//buffer size
 
@@ -90,6 +92,14 @@ public:
     void initOpenSL();//初始化openSL
 
     int getCurrentSampleRateForOpensles(int sample_rate);
+
+    void pause();
+
+    void resume();
+
+    void setMute(int channel);
+
+    void setVolume(int percent);
 };
 
 

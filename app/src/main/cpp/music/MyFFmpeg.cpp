@@ -12,7 +12,7 @@ MyFFmpeg::MyFFmpeg(AudioPlayStatus *playStatus, CallJavaHelper *callJava, const 
 }
 
 MyFFmpeg::~MyFFmpeg() {
-    pthread_mutex_unlock(&seek_mutex);
+    pthread_mutex_destroy(&seek_mutex);
 };
 
 //当前运行在子线程,再通过data转移到c++环境下运行
@@ -80,7 +80,6 @@ void MyFFmpeg::decodeAudioThread() {
     audioDuration = audio->audioDuration;
 
 
-
     //实例化音频解码器
     AVCodec *audioCodec = avcodec_find_decoder(audio->avCodecContext->codec_id);
     if (!audioCodec) {
@@ -111,8 +110,8 @@ void MyFFmpeg::start() {
 
     audio->play();
 
-    int count;
     while (playStatus != nullptr && !playStatus->exit) {
+        pthread_mutex_lock(&seek_mutex);
         //当前在seek时
         if (playStatus->isSeek) {
             continue;
@@ -120,28 +119,33 @@ void MyFFmpeg::start() {
 
         //队列大小大于100不放入新的数据了
         if (audio->queue->getQueueSize() > 100) {
+            pthread_mutex_unlock(&seek_mutex);
             continue;
         }
+        LOGI("当前frameCount:%d", frameCount);
 
         AVPacket *avPacket = av_packet_alloc();
-        if (av_read_frame(avFormatContext, avPacket) >= 0) {
+        int ret = av_read_frame(avFormatContext, avPacket);
+        if (ret >= 0) {
             //当前是音频轨道
             if (avPacket->stream_index == audio->streamIndex) {
-                count++;
-                LOGI("解码第%d帧", count);
+                frameCount++;
+                LOGI("解码第%d帧", frameCount);
                 //扔到队列中去
                 audio->queue->putAvPacket(avPacket);
             } else {
+                LOGI("非当前音频轨道");
                 //释放掉申请的avpacke
                 av_packet_free(&avPacket);
                 av_free(avPacket);
                 avPacket = NULL;
             }
         } else {//读取完成
+            LOGI("读取avpacket异常:%d", ret);
             //释放掉申请的avpacke
             av_packet_free(&avPacket);
             av_free(avPacket);
-            avPacket = NULL;
+            avPacket = nullptr;
             //解码完成，但是不一定播放完成
             while (playStatus != NULL && !playStatus->exit) {
                 if (audio->queue->getQueueSize() > 0) {
@@ -152,6 +156,7 @@ void MyFFmpeg::start() {
                 }
             }
         }
+        pthread_mutex_unlock(&seek_mutex);
     }
 
     LOGI("已解码完成");
@@ -160,7 +165,8 @@ void MyFFmpeg::start() {
 
 //跳转到规定位置播放
 void MyFFmpeg::seekTo(int64_t secds) {
-    if (audioDuration <= 0 || secds < 0 || audio == NULL) {
+    if (audioDuration <= 0 || secds < 0 || audio == nullptr) {
+        LOGI("当前已播放完成，别seek了");
         return;
     }
     LOGI("当前要seek的位置：%d", secds);
@@ -174,17 +180,51 @@ void MyFFmpeg::seekTo(int64_t secds) {
     audio->last_call_java_time = 0;
 
     int64_t rel = secds * AV_TIME_BASE;
-    avformat_seek_file(avFormatContext,//上下文
+
+    int  ret =  avformat_seek_file(avFormatContext,//上下文
                        -1,//轨道，-1代表所有轨道都seek
                        INT64_MIN,
-                       rel,
+                       rel,//微秒
                        INT64_MAX,
-                       -1);
+                       0);
 
-//    avcodec_flush_buffers(audio->avCodecContext);
+    LOGI("当前seek是否成功：%d", ret);
+
+    avcodec_flush_buffers(audio->avCodecContext);
 
     playStatus->isSeek = false;
 
+    frameCount = 0;
+
     pthread_mutex_unlock(&seek_mutex);
+    LOGI("seek完成");
+}
+
+//暂停录音
+void MyFFmpeg::pause() {
+    if (audio != nullptr) {
+        audio->pause();
+    }
+}
+
+//播放录音
+void MyFFmpeg::resume() {
+    if (audio != nullptr) {
+        audio->resume();
+    }
+}
+
+//设置声道  0 左声道 1右声道 2 立体声
+void MyFFmpeg::setMute(int channel) {
+    if (audio != nullptr) {
+        audio->setMute(channel);
+    }
+}
+
+//设置声道  0 左声道 1右声道 2 立体声
+void MyFFmpeg::setVolume(int volume) {
+    if (audio != nullptr) {
+        audio->setVolume(volume);
+    }
 }
 

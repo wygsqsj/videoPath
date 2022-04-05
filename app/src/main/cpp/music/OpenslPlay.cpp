@@ -6,7 +6,7 @@
 OpenslPlay::OpenslPlay(AudioPlayStatus *playStatus, AVCodecParameters *pParameters)
         : playStatus(playStatus), codecpar(pParameters) {
     queue = new OpenslQueue(playStatus);
-    //这个里面放的是音频重采样的数据，即每秒播放的pcm数据大小
+    //这个里面放的是音频重采样的数据，即每秒播放的pcm数据大小,采样率*2个字节（16位采样）*2个通道
     buffer = static_cast<uint8_t *>(av_malloc(codecpar->sample_rate * 2 * 2));
 }
 
@@ -28,7 +28,7 @@ void OpenslPlay::play() {
 
 //运行在子线程，返回重采样的大小，用于求时间
 int OpenslPlay::resampleAudio() {
-    while (playStatus != NULL && !playStatus->exit) {
+    while (playStatus != nullptr && !playStatus->exit) {
         avPacket = av_packet_alloc();
         //队列中没有数据
         if (queue->getAVPacket(avPacket) != 0) {
@@ -41,11 +41,11 @@ int OpenslPlay::resampleAudio() {
 
         //交给cpu进行解码
         ret = avcodec_send_packet(avCodecContext, avPacket);
-        if (ret != NULL) {
+        if (ret != 0) {
             LOGI("解码音频出错");
             av_packet_free(&avPacket);
             av_free(avPacket);
-            avPacket = NULL;
+            avPacket = nullptr;
             continue;
         }
 
@@ -71,25 +71,25 @@ int OpenslPlay::resampleAudio() {
                     (AVSampleFormat) (avFrame->format),//输入采样位数格式
                     avFrame->sample_rate,//输入采样率
                     0,//日志，可直接传0
-                    NULL
+                    nullptr
             );
 
             //转换器上下文初始化失败
-            if (!swr_context || swr_init(swr_context)) {
+            if (!swr_context || swr_init(swr_context) < 0) {
                 av_packet_free(&avPacket);
                 av_free(avPacket);
-                avPacket = NULL;
+                avPacket = nullptr;
 
                 av_frame_free(&avFrame);
                 av_free(avFrame);
-                avFrame = NULL;
+                avFrame = nullptr;
 
-                if (swr_context != NULL) {
+                if (swr_context != nullptr) {
                     swr_free(&swr_context);
-                    swr_context = NULL;
+                    swr_context = nullptr;
                 }
                 LOGI("转换器上下文初始化失败");
-                continue;
+                break;
             }
 
             //重采样，进行转换
@@ -101,9 +101,9 @@ int OpenslPlay::resampleAudio() {
 
             int out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
             data_size = nb * out_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
-            LOGI("重采样后的数据大小", data_size);
+            LOGI("重采样后的数据大小 %d,nb:%d,out_channels:%d", data_size, nb, out_channels);
 
-            //计算当前的时间戳,帧数 * 单位
+            //计算当前的时间戳,帧数 * 单位(就是总时间/多少帧)
             cur_time = avFrame->pts * av_q2d(time_base);
             //保证播放时间的准确
             if (clock > cur_time) {
@@ -115,25 +115,25 @@ int OpenslPlay::resampleAudio() {
             //释放掉当前音频帧的数据
             av_packet_free(&avPacket);
             av_free(avPacket);
-            avPacket = NULL;
+            avPacket = nullptr;
 
             av_frame_free(&avFrame);
             av_free(avFrame);
-            avFrame = NULL;
+            avFrame = nullptr;
 
             swr_free(&swr_context);
-            swr_context = NULL;
+            swr_context = nullptr;
 
             break;
         } else {
             av_packet_free(&avPacket);
             av_free(avPacket);
-            avPacket = NULL;
+            avPacket = nullptr;
 
             av_frame_free(&avFrame);
             av_free(avFrame);
-            avFrame = NULL;
-            continue;
+            avFrame = nullptr;
+            break;
         }
     }
 
@@ -143,34 +143,40 @@ int OpenslPlay::resampleAudio() {
 //opensl从此处取数据，不断的被调用
 void pcmBufferCallBack(SLAndroidSimpleBufferQueueItf bufferQueueItf, void *data) {
     LOGI("pcmBufferCallBack 执行");
-    OpenslPlay *play = (OpenslPlay *) data;
-    if (play != NULL) {
-        //从FFMpeg生产的AVPacket队列取出数据，进行解码
+    auto *play = (OpenslPlay *) data;
+    if (play != nullptr && play->playStatus != nullptr && !play->playStatus->exit) {
+        //从FFMpeg生产的AVPacket队列取出数据，进行解码，得到的是要播放的pcm数据大小
         int bufferSize = play->resampleAudio();
 
-        //计算当前的播放时间
-        play->clock += bufferSize / (double) (play->codecpar->sample_rate * 2 * 2);
+        if (bufferSize > 0) {
+            //计算当前的播放时间，即pcm数据大小/播放这些pcm所需要的字节 = 播放的时间
+            //play->clock是当前pcm解码出来的时间 + 播放所需要时间 = 当前的时间戳
+            play->clock += bufferSize / (double) (play->codecpar->sample_rate * 2 * 2);
 
-        //回调给java层，控制频率在1秒内回调一次
-        if (play->clock - play->last_call_java_time > 1) {
-            play->callJava->onPlayTimeCallBack(CHILD_THREAD, play->clock, play->audioDuration);
-            play->last_call_java_time = play->clock;
+            //回调给java层，控制频率在1秒内回调一次
+            if (play->clock - play->last_call_java_time > 1) {
+                play->callJava->onPlayTimeCallBack(CHILD_THREAD, play->clock, play->audioDuration);
+                play->last_call_java_time = play->clock;
+            }
+
+            LOGI("OpenslPlay 获取");
+            //将数据添加到opensl的队列中去进行播放
+            (*play->pcmBufferQueue)->Enqueue(play->pcmBufferQueue,
+                                             (char *) play->buffer,
+                                             bufferSize);
+        } else {
+            LOGI("当前没有获取到转码后的pcm数据");
         }
 
-        LOGI("OpenslPlay 获取");
-        //将数据添加到opensl的队列中去
-        (*play->pcmBufferQueue)->Enqueue(play->pcmBufferQueue,
-                                         (char *) play->buffer,
-                                         bufferSize);
     } else {
-        LOGI("OpenslPlay 获取失败");
+        LOGI("OpenslPlay 获取完成");
     }
 }
 
 //初始化openSl
 void OpenslPlay::initOpenSL() {
     struct timeval t_start, t_end;
-    gettimeofday(&t_start, NULL);
+    gettimeofday(&t_start, nullptr);
     LOGI("Start time: %ld us", t_start.tv_usec);
     /***********  1 创建引擎 获取SLEngineItf***************/
     //创建引擎
@@ -277,19 +283,17 @@ void OpenslPlay::initOpenSL() {
         LOGI("创建引擎 audio player init success");
     }
 
-    //获取播放器接口，通过接口控制
+    //获取播放器接口，通过接口控制暂停、播放
     result = (*pcmPlayerObject)->GetInterface(pcmPlayerObject, SL_IID_PLAY, &pcmPlayerPlay);
-
     if (result != SL_RESULT_SUCCESS) {
         LOGI("opensl播放器 get SL_IID_PLAY failed");
     } else {
         LOGI("opensl播放器 get SL_IID_PLAY success");
     }
-
-    //获取声道操作接口
+    //用于操作声道
     (*pcmPlayerObject)->GetInterface(pcmPlayerObject, SL_IID_MUTESOLO, &pcmMutePlay);
 
-    //音量
+    //操作音量
     (*pcmPlayerObject)->GetInterface(pcmPlayerObject, SL_IID_VOLUME, &pcmVolumePlay);
 
     //获取播放队列接口
@@ -367,5 +371,73 @@ int OpenslPlay::getCurrentSampleRateForOpensles(int sample_rate) {
 
 void OpenslPlay::setCallJava(CallJavaHelper *callJava) {
     this->callJava = callJava;
+}
+
+//暂停录音
+void OpenslPlay::pause() {
+    if (pcmPlayerPlay != nullptr) {
+        (*pcmPlayerPlay)->SetPlayState(pcmPlayerPlay, SL_PLAYSTATE_PAUSED);
+    }
+}
+
+//播放录音
+void OpenslPlay::resume() {
+    if (pcmPlayerPlay != nullptr) {
+        (*pcmPlayerPlay)->SetPlayState(pcmPlayerPlay, SL_PLAYSTATE_PLAYING);
+    }
+}
+
+//设置声道  0 左声道 1右声道 2 立体声
+void OpenslPlay::setMute(int channel) {
+    if (pcmMutePlay == nullptr) {
+        LOGI("声道操作接口未初始化");
+        return;
+    }
+
+    switch (channel) {
+        case 0:
+            (*pcmMutePlay)->SetChannelMute(pcmMutePlay, 0, true);//true 代表关闭
+            (*pcmMutePlay)->SetChannelMute(pcmMutePlay, 1, false);//false 代表开启
+            break;
+        case 1:
+            (*pcmMutePlay)->SetChannelMute(pcmMutePlay, 0, false);
+            (*pcmMutePlay)->SetChannelMute(pcmMutePlay, 1, true);
+            break;
+        case 2:
+            (*pcmMutePlay)->SetChannelMute(pcmMutePlay, 0, false);
+            (*pcmMutePlay)->SetChannelMute(pcmMutePlay, 1, false);
+            break;
+    }
+
+}
+
+//设置声音大小
+void OpenslPlay::setVolume(int percent) {
+    if (pcmVolumePlay == nullptr) {
+        LOGI("声音操作接口未初始化");
+        return;
+    }
+    if (pcmVolumePlay != nullptr) {
+        if (percent > 30) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -20);
+        } else if (percent > 25) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -22);
+        } else if (percent > 20) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -25);
+        } else if (percent > 15) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -28);
+        } else if (percent > 10) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -30);
+        } else if (percent > 5) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -34);
+        } else if (percent > 3) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -37);
+        } else if (percent > 0) {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -40);
+        } else {
+            (*pcmVolumePlay)->SetVolumeLevel(pcmVolumePlay, (100 - percent) * -100);
+        }
+    }
+
 }
 

@@ -2,10 +2,16 @@ cmake_minimum_required(VERSION 3.10.2)
 #添指向librtmp文件夹，编译该文件夹下的文件
 add_subdirectory(librtmp)
 
-message("----------------")
-message(${CMAKE_BUILD_TYPE})
-message(${ANDROID_ABI})
-message(${CMAKE_SOURCE_DIR})
+#是否打印log
+set(CMAKE_LOG TRUE)
+IF (${CMAKE_LOG})
+    message("当前执行了打印")
+    message("----------------")
+    message("message buildType:" ${CMAKE_BUILD_TYPE})
+    message("cmark_abi:" ${ANDROID_ABI})
+    message("cmake_source_dir：" ${CMAKE_SOURCE_DIR})
+ENDIF ()
+
 #导入x264头文件
 include_directories(${CMAKE_SOURCE_DIR}/include/x264)
 #导入faac头文件

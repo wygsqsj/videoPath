@@ -31,6 +31,8 @@ public:
     int audioDuration = 0;
     //seek 时加锁
     pthread_mutex_t seek_mutex;
+    //当前解码的帧数
+    int frameCount;
 
 public:
     MyFFmpeg(AudioPlayStatus *playStatus, CallJavaHelper *callJava, const char *audioUrl);
@@ -45,6 +47,13 @@ public:
 
     void seekTo(int64_t secds);
 
+    void pause();
+
+    void resume();
+
+    void setMute(int channel);
+
+    void setVolume(int setVolume);
 };
 
 

@@ -24,8 +24,17 @@ CallJavaHelper *callJava = NULL;
 MyFFmpeg *ffmpeg = NULL;
 AudioPlayStatus *playStatus = NULL;
 
-extern "C"
+//固定写法，用于获取jvm实例
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *unused) {
+    JNIEnv *env;
+    javaVm = vm;
+    if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_OK) {
+        return -1;
+    }
+    return JNI_VERSION_1_6;
+}
 
+extern "C"
 //初始化音频解码器
 JNIEXPORT void JNICALL
 Java_com_wish_videopath_demo11_FFPlay_initAudio(JNIEnv *env, jobject thiz, jstring _url) {
@@ -68,14 +77,39 @@ Java_com_wish_videopath_demo11_FFPlay_seekToSecds(JNIEnv *env, jobject thiz, jin
 
 }
 
-
-
-//固定写法，用于获取jvm实例
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *unused) {
-    JNIEnv *env;
-    javaVm = vm;
-    if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_OK) {
-        return -1;
+//暂停录音
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_wish_videopath_demo11_FFPlay_n_1pause(JNIEnv *env, jobject thiz) {
+    if (ffmpeg != nullptr) {
+        ffmpeg->pause();
     }
-    return JNI_VERSION_1_6;
+
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_wish_videopath_demo11_FFPlay_n_1resume(JNIEnv *env, jobject thiz) {
+    if (ffmpeg != nullptr) {
+        ffmpeg->resume();
+    }
+
+}
+
+//设置声道 0 左声道 1右声道 2 立体声
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_wish_videopath_demo11_FFPlay_setMute(JNIEnv *env, jobject thiz, jint channel) {
+    if (ffmpeg != nullptr) {
+        ffmpeg->setMute(channel);
+    }
+}
+
+//设置声道 0 左声道 1右声道 2 立体声
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_wish_videopath_demo11_FFPlay_n_1setVolume(JNIEnv *env, jobject thiz, jint volume) {
+    if (ffmpeg != nullptr) {
+        ffmpeg->setVolume(volume);
+    }
 }

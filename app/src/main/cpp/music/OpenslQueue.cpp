@@ -44,6 +44,7 @@ int OpenslQueue::getAVPacket(AVPacket *avPacket) {
             LOGI("从队列里面取出一个avPacket，当前队列大小%d", queuePacket.size());
             break;
         } else {
+            LOGI("没有数据线程等待");
             //没有数据线程等待
             pthread_cond_wait(&condPacket, &mutex);
         }

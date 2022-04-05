@@ -69,11 +69,43 @@ public class FFPlay {
         seekToSecds(position);
     }
 
+
+    public void pauseAudio() {
+        n_pause();
+    }
+
+    public void resumeAudio() {
+        n_resume();
+    }
+
+    public void centerAudio() {
+        setMute(0);
+    }
+
+    public void rightChannelAudio() {
+        setMute(1);
+    }
+
+    public void leftChannelAudio() {
+        setMute(2);
+    }
+
+    public void setVolume(int volume) {
+        n_setVolume(volume);
+    }
+
     private native void initAudio(String url);
 
     private native void playAudio();
 
     private native void seekToSecds(int secds);
 
+    private native void n_pause();
+
+    private native void n_resume();
+
+    private native void setMute(int channel);
+
+    private native void n_setVolume(int volume);
 
 }
